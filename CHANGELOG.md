@@ -1,6 +1,6 @@
 # Naufal Windows Utility — Changelog
 
-Development history from **30 August 2026** through **2 October 2026**.
+Development history from **30 August 2026** through **8 October 2026**.
 
 **Original history snapshot:** 12 September 2026, 00:39:41 WIB (Asia/Jakarta, UTC+07:00).
 Later development entries are appended below with their own dates.
@@ -21,6 +21,126 @@ mutation, complete visual validation, or full behavioral parity.
 Historical report filenames identify the records used when this history was
 assembled. Reports not included in this repository are shown as plain references,
 not download links; private backups and raw machine evidence are not published.
+
+## 8 October 2026 — GPU Driver & Header Preview
+
+- **Release:** `v8.0.0.0-build.20261008`, with application/installer version
+  v8.0.0.0. This development preview includes the 3 October navigation-header fix
+  and 7 October GPU release checks, public NVIDIA versions, verified driver-type
+  selection and shared GPU action header. Earlier tags/releases are retained.
+- **README:** Refreshed release banner, direct download/navigation links and
+  feature documentation. Maintainer-supplied Home Light/Dark screenshots remain;
+  native GPU component previews are added and explicitly labelled as isolated
+  test-host images with synthetic metadata, not live driver results.
+- **Checks:** 151 GPU metadata/service, 4,786 profile/action, 347 English UI,
+  92 catalog-interaction, 33 identity, 27 simplified-interface and 91 icon checks
+  pass. Native AOT UI coverage is recorded in the preceding implementation entry.
+  No real GPU driver installation, tweak application or reboot is performed for
+  this publication. Intel HTTP 403 and hardware-validation limits remain visible.
+- **Assets:** Fresh Native AOT / Inno Setup x64 installer, `SHA256SUMS.txt` and
+  this changelog. Installer: 38,680,817 bytes; SHA-256:
+  `B53EEA88388212238132D3470AF820D3F63300926098DA132C4C6A1BF40BFD47`.
+  The installer remains unsigned. SHA-256 verifies file identity, not publisher
+  trust or universal compatibility.
+
+## 7 October 2026 — GPU driver types and shared action header
+
+- **Interface:** Check for updates, Repair driver and Download & install now
+  share one non-scrolling header with equal responsive columns and wrapped
+  labels. The new Driver type selector belongs to the same header; the footer
+  no longer duplicates install/repair actions.
+- **Versions:** NVIDIA's installed version uses its public form (for example
+  `32.0.16.1714` becomes `617.14`). Raw INF metadata remains available to backend
+  verification/logs. Intel versions are not shortened, and AMD Adrenalin versions
+  are not guessed from unrelated INF numbers.
+- **Driver types:** Exact NVIDIA product/OS checks offer Game Ready and Studio
+  for supported GeForce/TITAN cards, or RTX Enterprise Production Branch for
+  supported workstation RTX/Quadro cards. Selected desktop AMD RX pages offer
+  verified Recommended/Optional full packages. Intel Arc Pro is offered only
+  when the selected GPU is explicitly listed by that catalog. Unsupported or
+  unavailable types are not fabricated.
+- **Operations:** Check, install and repair use the same selected-channel
+  catalog. Both modifying actions confirm the type/version and revalidate them
+  before downloading. Repair reinstalls the selected release and can update the
+  version or switch type. A withdrawn channel, changed version, unverified
+  GPU/OS or comparable automatic downgrade is blocked. Old cross-channel,
+  generated-URL and Auto-Detect package fallbacks are removed. Existing signature,
+  publisher, hash and post-install device checks remain; Intel's published hash
+  and matching AMD INF versions are carried into package verification.
+- **Verification:** 151 offline GPU service/parser assertions and 41,521 native
+  WinUI Native AOT assertions pass, including 12 GPU layout combinations, both
+  themes, 25/100/200% scaling, selection and isolated button invocation. All
+  4,786 profile/action, 347 English UI, 92 catalog-interaction, 33 identity,
+  27 simplified-interface and 91 icon assertions pass.
+- **Live metadata only:** The RTX 4070 Ti SUPER catalog returns distinct Game
+  Ready and Studio packages. Synthetic RTX A4000 and RX 7900 XTX probes verify
+  Enterprise and Recommended/Optional catalogs respectively. Intel HTTP 403
+  remains a visible limitation; its channel paths are fixture-tested, not
+  live-certified. No real driver was downloaded, installed or repaired in tests.
+- **Packaging:** Fresh Native AOT x64 / Inno Setup build succeeds without
+  compiler warnings. Installer: 38,681,219 bytes; SHA-256:
+  `A507105B1BC4868E60376C51FE229DE11284BB866ADC64699A25F463B1248720`.
+- **Scope:** Local v8.0.0.0 revision with README and GPU documentation updated.
+  No GitHub push/release or driver installation was requested for this change.
+  Earlier completed header and update-notification work is preserved.
+
+## 7 October 2026 — GPU driver release notifications
+
+- **Added:** GPU Driver Manager checks the selected GPU's official catalog when
+  opened or when selection changes, with a manual Check for updates button and
+  inline notification when a comparable newer driver is found.
+- **Release details:** Latest catalog version, release date/time, channel,
+  official release link and a separately labelled local check timestamp. Missing
+  release hours remain "Not published by vendor"; failed checks show "Not
+  verified". No page timestamp, INF date or check time is substituted for release
+  time. Inventory headers now clarify installed version versus driver date.
+- **Coverage:** Exact NVIDIA model / Game Ready WHQL mapping with OS-specific
+  Windows 10/11 queries, selected desktop AMD RX product pages and identified
+  Intel graphics families. AMD Auto-Detect versions are excluded; ambiguous
+  Driver Store branches and unsupported/OEM families retain explicit limitations.
+- **Safety/UI:** Metadata-only checking, bounded timeout, per-window/device
+  caching, cancellation on selection/refresh/close, and protection from stale
+  responses. Wrapped selectable results remain scrollable. No automatic
+  installation, background task, downgrade or changes to install/repair behavior.
+- **Verification:** 101 offline GPU metadata/service assertions pass. The native
+  WinUI suite passes 41,376 Debug / 41,377 Native AOT assertions, including 12 GPU panel layout combinations
+  in both themes and 25/100/200% scaling. The read-only NVIDIA check succeeds on
+  the development GPU; AMD metadata was read using a synthetic product probe;
+  Intel HTTP 403 is reported as unavailable. No driver was installed for testing.
+- **Build/regressions:** Final Native AOT/Inno packaging succeeds without compiler
+  warnings. All 4,786 profile/action, 343 English UI, 92 catalog-interaction, 33
+  identity, 27 simplified-interface and 91 icon assertions pass. Fresh installer:
+  38,675,649 bytes; SHA-256:
+  `FF5AFC63577F946728E1B1CFF58D52052BAAE3D37A846974E062CABEAE1F723A`.
+- **Documentation:** README and `docs/gpu-driver-updates.md` explain behavior,
+  supported catalogs, timestamps and unverified hardware cases. Application
+  version remains v8.0.0.0. This change is local; no GitHub push/release is part of
+  this task. The existing 3 October header fix is preserved.
+
+## 3 October 2026 — Shared header alignment
+
+- **Fixed:** About, Task Monitoring and Exit now stay inside the navigation
+  viewport on all five pages. A full-width layout container centers the capped
+  content independently of each page's desired width, preventing horizontal drift
+  and a clipped Exit button when switching to narrower pages.
+- **Preserved:** Existing button handlers, confirmations, responsive wrapping,
+  text scaling, themes and all repair/tweak/report backends are unchanged.
+- **Regression evidence:** A native WinUI test reproduced the off-screen Exit
+  button before the fix. The expanded suite passes 41,250–41,251 assertions
+  (Dark/100% and Light/200% startup runs) across 252
+  layout cases and 8 scaling flyouts, including all five pages, Light/Dark themes,
+  480–1920-pixel window widths, 25–200% app text scaling, sidebar open/closed and
+  an expanded long inventory report. Tests check actual viewport bounds, hit-test
+  targets and stable alignment, not just bounds inside the toolbar itself.
+- **Build/checks:** Debug x64 builds with zero warnings/errors. All 27 simplified
+  interface, 92 catalog-interaction and 33 project-identity checks pass. Native
+  previews are generated by the backend-free test host; no Windows tweaks,
+  security changes, installation or reboot are performed by these checks.
+- **Packaging:** Fresh Native AOT x64 / Inno Setup installer completed, with 91
+  icon assertions passing. Installer size: 38,626,457 bytes; SHA-256:
+  `D455C757D01A82F05756A618EE31E8D4BC909AC40F7FFDB79089B3707CC1B80E`.
+- **Scope:** Local v8.0.0.0 revision; GitHub source/releases are not updated by this
+  layout-only task.
 
 ## 2 October 2026 — Simplified interface development preview
 

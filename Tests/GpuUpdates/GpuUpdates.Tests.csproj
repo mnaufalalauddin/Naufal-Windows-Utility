@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../GpuDriverService.cs" Link="GpuDriverService.cs" />
+    <Compile Include="../../GpuDriverService.Updates.cs" Link="GpuDriverService.Updates.cs" />
+    <Compile Include="../../GpuDriverUpdates.cs" Link="GpuDriverUpdates.cs" />
+    <Compile Include="../../GpuDriverChannels.cs" Link="GpuDriverChannels.cs" />
+    <Compile Include="../../GpuDriverVersionVerification.cs" Link="GpuDriverVersionVerification.cs" />
+    <Compile Include="../../MaintenanceProgress.cs" Link="MaintenanceProgress.cs" />
+  </ItemGroup>
+</Project>

@@ -1,7 +1,7 @@
 # Naufal Windows Utility
 
 [![Source version](https://img.shields.io/badge/Source_Version-v8.0.0.0-0567ff?style=for-the-badge)](CHANGELOG.md)
-[![Development preview](https://img.shields.io/github/v/release/mnaufalalauddin/Naufal-Windows-Utility?include_prereleases&style=for-the-badge&label=Preview)](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.0-build.20261002)
+[![Development preview](https://img.shields.io/badge/Preview-8_October_2026-8250df?style=for-the-badge)](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.0-build.20261008)
 [![Windows target](https://img.shields.io/badge/Target-Windows_10_%2F_11_x64-0078d4?style=for-the-badge)](#quick-start)
 [![License](https://img.shields.io/badge/License-MIT-16803c?style=for-the-badge)](LICENSE)
 [![Interface](https://img.shields.io/badge/UI-English-8250df?style=for-the-badge)](#interface--project-status)
@@ -10,11 +10,17 @@ A native Windows dashboard to **repair system components**, **inspect disk healt
 
 Developed by **Muhammad Naufal Alauddin**. Independent, open-source, and under active development. **Not affiliated with Microsoft or Microsoft PowerToys.**
 
-> **2 October 2026 — Simplified UI preview:** analysis now stays in the relevant
-> window, long confirmations scroll, and unused development modules and HVCI
-> mutation controls have been removed. [Download this development preview](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.0-build.20261002)
-> or read [what changed and what remains supported](#a-simpler-interface).
-> This is a **pre-release**, not a claim of complete Windows/hardware validation.
+**[Download installer](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.0-build.20261008)** · [Features](#whats-included) · [GPU drivers](#gpu-driver-release-notifications) · [Build from source](#build--develop) · [Changelog](CHANGELOG.md)
+
+> **8 October 2026 — GPU Driver & Header Preview**
+> Check official driver releases, choose a GPU-compatible driver type, and use
+> Check for updates / Repair driver / Download & install from one shared header.
+> NVIDIA versions now use their public format, such as **617.14**. The main
+> About / Task Monitoring / Exit header also stays inside every sidebar page.
+> This is a **pre-release**: hardware coverage is still being validated, and
+> checking for updates never installs a driver automatically.
+
+## Preview
 
 ### Dark Mode
 
@@ -22,9 +28,29 @@ Developed by **Muhammad Naufal Alauddin**. Independent, open-source, and under a
 
 ### Light Mode
 
+<details>
+<summary>View the Light Mode dashboard</summary>
+
 ![Naufal Windows Utility — Light Mode, 28 September 2026](docs/images/dashboard-light-20260928-012935.png)
 
+</details>
+
 *Light and Dark screenshots supplied by the maintainer on 28 September 2026 at 01:29. Home shows About, Task Monitoring, and Exit; restart-sensitive changes instead offer “Restart now” or “Later” after active tasks finish. Profile and system-status values reflect the PC when captured, not recommended settings or guaranteed results. Scroll Home for quick actions, telemetry, and technical details.*
+
+### GPU Driver Manager — new shared header
+
+![GPU Driver Manager shared header and release panel — isolated Dark Mode preview](docs/images/gpu-driver-header-dark-20261007.png)
+
+<details>
+<summary>View the GPU header in Light Mode</summary>
+
+![GPU Driver Manager shared header and release panel — isolated Light Mode preview](docs/images/gpu-driver-header-light-20261007.png)
+
+</details>
+
+*These GPU previews were rendered by the native, backend-free UI test host on
+7 October. They show the real header/result components with synthetic release
+data; they are not live update results or a screenshot of the complete inventory.*
 
 ---
 
@@ -32,7 +58,7 @@ Developed by **Muhammad Naufal Alauddin**. Independent, open-source, and under a
 
 > **Back up important data before applying tweaks.** System-changing operations may require Administrator privileges. Review each option's warning; do not apply every tweak indiscriminately.
 
-1. Open the [2 October development preview](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.0-build.20261002) and download `Naufal-Windows-Utility-Setup-8.0.0.0-x64.exe`. Compare its SHA-256 with that release's attached `SHA256SUMS.txt`. The [previous non-preview release](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/latest) remains available but does not contain all changes described here. Alternatively, [build from source](#build--develop).
+1. Open the [8 October development preview](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.0-build.20261008) and download `Naufal-Windows-Utility-Setup-8.0.0.0-x64.exe`. Compare its SHA-256 with that release's attached `SHA256SUMS.txt`. The [previous non-preview release](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/latest) remains available but does not contain all changes described here. Alternatively, [build from source](#build--develop).
 2. Run the installer, open **Naufal Windows Utility**, and review the first-run prerequisites.
 3. Choose a catalog or performance profile, read its description, and apply only the changes you need.
 4. Read analysis results inline in the tool window; Apply/Restore operations retain their separate progress and verification results. For completed changes marked restart-sensitive, the app offers **Restart now** or **Later** after active tasks finish. Save your work before accepting. Choosing Later does not schedule a reboot; restart from Windows when convenient.
@@ -69,6 +95,38 @@ The sidebar contains **Home**, **System Repair**, **System Info**, **Windows Sec
 - **Optional network addresses:** System Report can show local IPv4/IPv6 and MAC addresses. These are hidden by default and included in Copy / Save TXT only when selected; no public-IP lookup is performed. Other report fields can still contain identifying information.
 
 Availability depends on the drive, controller, firmware, and Windows driver. Endurance is a write-wear estimate, not a prediction of years remaining or a guarantee against failure. See [supported paths, data sources, and limitations](docs/disk-info.md).
+
+### GPU driver release notifications
+
+The **8 October preview** includes an online release panel in **GPU Driver
+Manager**. Opening the manager checks the selected GPU against its official
+vendor catalog; select another GPU or use **Check for updates** to inspect it.
+**Check for updates**, **Repair driver**, and **Download & install** share a
+fixed, responsive action header. The **Driver type** selector lists only the
+channels verified for that GPU/OS. NVIDIA versions display as **617.14**, not
+the Windows INF form **32.0.16.1714**; raw versions remain in diagnostic logs.
+The panel shows the latest selected-channel version, release date, release time when the
+vendor supplies it, driver channel, official source link, and a separate local
+check timestamp. A confirmed newer version displays **New GPU driver available**.
+
+Date-only releases show **Not published by vendor** for the time, not an invented
+midnight. Network failures and ambiguous package/installed-version comparisons
+are reported explicitly. NVIDIA offers **Game Ready / Studio**, or **RTX Driver /
+Enterprise** for supported workstation products; consumer GeForce RTX is not
+treated as an Enterprise GPU. Supported AMD desktop RX pages supply **Recommended /
+Optional** choices. Intel Graphics / **Arc Pro** choices depend on the family and
+published supported-product list. A channel is never inferred merely from an RTX
+or Pro label in a download title.
+OEM/customized drivers and unsupported families may need manual verification.
+No background task, automatic driver download, or automatic installation is added.
+Install and Repair use the selected channel's direct official package after
+revalidation and confirmation; Repair can update/reinstall that release rather
+than silently switching channels. No substitute-channel fallback or automatic
+downgrade is performed. The selected channel is not proof of the installed channel.
+See [GPU update behavior and limitations](docs/gpu-driver-updates.md).
+Intel's catalog currently returns HTTP 403 on the development PC. Its parsing
+and channel selection are fixture-tested; live Intel access and real driver
+installation are not certified. Failed checks remain visible as unavailable.
 
 ## A simpler interface
 
@@ -178,6 +236,7 @@ dotnet build ".\Naufal Tech's Windows Powertoys.csproj" -c Debug -p:Platform=x64
 
 dotnet run --project .\Tests\ProfileVerification\ProfileVerification.Tests.csproj
 dotnet run --project .\Tests\Localization\Localization.Tests.csproj
+dotnet run --project .\Tests\GpuUpdates\GpuUpdates.Tests.csproj
 .\Tests\ParityAudit\Test-CatalogInteraction.ps1
 .\Tests\ParityAudit\Test-ProjectIdentity.ps1
 ```
@@ -194,6 +253,7 @@ The functional and localization checks do not apply Windows tweaks. The separate
 | `*Service.cs`, catalog and policy files | Inspection, repair, tweaks, app management, and restore behavior. |
 | `DiskInfoView.cs`, `NativeDiskSmart*.cs`, `DeviceSmartReport.cs`, `SsdEndurance.cs` | Disk dashboard, read-only SMART transports, health decoding and model-scoped endurance. |
 | `NetworkReport.cs`, `SystemReportEntry.cs` | Local network report and opt-in address visibility/export. |
+| `GpuDriverService.Updates.cs`, `GpuDriverChannels.cs`, `GpuDriverUpdates.cs`, `GpuDriverHeader.cs`, `GpuDriverUpdateView.cs` | GPU/OS-verified driver types, channel-consistent package resolution, shared action header, public versions and release notifications. |
 | `Catalog*`, `SharedPrivacySnapshot.cs` | Action planning, effect conflicts, journals, scan invalidation and the two migrated shared privacy originals. |
 | `InlineAnalysisProgress.cs`, `DialogMessageContent.cs`, `ToolWindow.cs` | Embedded scan evidence and scrollable confirmation/message bodies. |
 | `SecurityMitigation*.cs` | Configured/running protection evidence and the retained guarded LSA control. HVCI has no application action. |
@@ -212,17 +272,24 @@ The project file retains its historical filename. Passing tests is not proof tha
 
 ## Interface & Project Status
 
-**Current preview: [v8.0.0.0-build.20261002](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.0-build.20261002).**
+**Current preview: [v8.0.0.0-build.20261008](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.0-build.20261008).**
 The simplified interface retains Disk Info/SMART, repair, existing tweak and
 recovery backends, action safety checks and guarded LSA Enable. HVCI is read-only.
 The removed storage/offline/resource/background modules are test-only historical
 fixtures, not application features. User backups and external images are retained.
 
-Verification for this revision includes a clean Debug x64 build, Native AOT/Inno
+Verification for the published 2 October preview includes a clean Debug x64 build, Native AOT/Inno
 Setup packaging, 4,786 profile/action assertions, 337 English UI checks, and 20,961
 native WinUI assertions covering 128 layout cases, scaling, both themes, long
 confirmation scrolling and inline error details. These tests do not apply host
 tweaks, restart Windows or establish live LSA/driver/controller compatibility.
+
+The GPU driver-type/header revision included in this preview passes 151 metadata/service
+assertions and 41,521 Native AOT UI assertions, including 12 GPU-header/panel layout
+combinations and isolated button invocation. All 4,786 profile/action and 347
+English UI checks pass. [The changelog](CHANGELOG.md) records packaging results,
+the release installer checksum and live catalog limitations. Tests do not install
+or repair real GPU drivers. Earlier verification figures below are historical.
 
 **English-only interface.** The language selector, saved-language behavior, runtime text replacement, and application-owned non-English catalogs have been removed. Existing theme, scaling, backup, and wizard preferences are preserved. Output returned by Windows or device drivers can retain the operating system's language.
 

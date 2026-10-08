@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.UI;
@@ -4409,30 +4410,44 @@ namespace Naufal_Windows_Tech_s_Powertoys
         {
             Grid contentGrid = new();
             contentGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            contentGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             contentGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             contentGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            contentGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
+            GpuDriverHeader gpuHeader = new();
+            contentGrid.Children.Add(gpuHeader);
             Grid header = CreateGpuDriverGrid();
             header.Background = new SolidColorBrush(Color.FromArgb(255, 176, 196, 222));
             header.Padding = new Thickness(8, 6, 8, 6);
             AddGpuGridText(header, "GPU", 0, true);
             AddGpuGridText(header, "VENDOR", 1, true);
-            AddGpuGridText(header, "VERSION", 2, true);
-            AddGpuGridText(header, "DATE", 3, true);
+            AddGpuGridText(header, "INSTALLED VERSION", 2, true);
+            AddGpuGridText(header, "DRIVER DATE", 3, true);
             AddGpuGridText(header, "STATUS", 4, true);
-            Grid.SetRow(header, 0);
+            Grid.SetRow(header, 1);
             contentGrid.Children.Add(header);
 
             ListView list = new()
             {
                 SelectionMode = ListViewSelectionMode.Single,
+                MinHeight = 96,
+                MaxHeight = 210,
                 HorizontalContentAlignment = HorizontalAlignment.Stretch,
                 BorderBrush = new SolidColorBrush(Color.FromArgb(255, 187, 199, 213)),
                 BorderThickness = new Thickness(1, 0, 1, 1)
             };
-            Grid.SetRow(list, 1);
-            contentGrid.Children.Add(list);
+            StackPanel driverDetails = new() { Spacing = 12 };
+            driverDetails.Children.Add(list);
+            ScrollViewer driverViewport = new()
+            {
+                Content = driverDetails,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                HorizontalScrollMode = ScrollMode.Disabled,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+            };
+            Grid.SetRow(driverViewport, 2);
+            contentGrid.Children.Add(driverViewport);
 
             TextBlock statusText = new()
             {
@@ -4442,8 +4457,9 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 IsTextSelectionEnabled = true,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 49, 84, 134))
             };
-            Grid.SetRow(statusText, 2);
-            contentGrid.Children.Add(statusText);
+            driverDetails.Children.Add(statusText);
+            GpuDriverUpdateView releaseView = new();
+            driverDetails.Children.Add(releaseView);
 
             Button officialSourceButton = new()
             {
@@ -4473,19 +4489,96 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 this,
                 "GPU Driver Manager",
                 contentGrid,
-                primaryButtonText: UiTextKeys.DownloadInstall,
-                secondaryButtonText: "Repair driver",
                 closeButtonText: "Close",
                 initialWidth: 1120,
                 initialHeight: 720,
                 minimumWidth: 720,
                 minimumHeight: 450);
-            window.PrimaryButton.IsEnabled = false;
-            window.SecondaryButton.IsEnabled = false;
+            gpuHeader.InstallButton.IsEnabled = false;
+            gpuHeader.RepairButton.IsEnabled = false;
 
             OperationGate gpuGate = new();
             bool inventoryLoading = false;
             window.IsBusy = () => inventoryLoading || gpuGate.IsBusy;
+            Dictionary<string, GpuDriverCatalog> catalogs = new(StringComparer.OrdinalIgnoreCase);
+            Dictionary<string, GpuDriverChannel> selectedChannels = new(StringComparer.OrdinalIgnoreCase);
+            bool bindingChannels = false;
+            GpuDriverChoice? GetChoice() => (gpuHeader.ChannelPicker.SelectedItem as ComboBoxItem)?.Tag as GpuDriverChoice;
+            void ResetChannels()
+            {
+                bindingChannels = true;
+                try { gpuHeader.ChannelPicker.Items.Clear(); }
+                finally { bindingChannels = false; }
+                gpuHeader.ChannelPicker.IsEnabled = false;
+            }
+            void ApplyCatalog(GpuDriverEntry device, GpuDriverCatalog catalog)
+            {
+                bindingChannels = true;
+                try
+                {
+                    gpuHeader.ChannelPicker.Items.Clear();
+                    bool hadPreference = selectedChannels.TryGetValue(device.PnpDeviceId, out var preferred);
+                    foreach (var choice in catalog.Choices)
+                    {
+                        var item = new ComboBoxItem { Tag = choice,
+                            Content = new TextBlock { Text = choice.Name, TextWrapping = TextWrapping.Wrap } };
+                        gpuHeader.ChannelPicker.Items.Add(item);
+                        if (hadPreference && choice.Id == preferred) gpuHeader.ChannelPicker.SelectedItem = item;
+                    }
+                    if (!hadPreference && gpuHeader.ChannelPicker.Items.Count > 0) gpuHeader.ChannelPicker.SelectedIndex = 0;
+                    if (GetChoice() is { } selectedChoice) selectedChannels[device.PnpDeviceId] = selectedChoice.Id;
+                    gpuHeader.ChannelPicker.PlaceholderText = catalog.Choices.Count == 0 ? "No compatible driver type verified — retry or use Official source" : "Select driver type";
+                    UiDisplaySettings.Apply(gpuHeader);
+                }
+                finally { bindingChannels = false; }
+            }
+            CancellationTokenSource? releaseCheck = null;
+            string? checkingDevice = null;
+            void CancelReleaseCheck()
+            {
+                releaseCheck?.Cancel();
+                releaseCheck = null;
+                checkingDevice = null;
+            }
+            window.Closed += (_, _) => CancelReleaseCheck();
+
+            async Task CheckUpdatesAsync(bool force = false)
+            {
+                GpuDriverEntry? selected = GetSelection();
+                if (window.IsClosed || inventoryLoading || gpuGate.IsBusy || selected is null) return;
+                if (!force && checkingDevice == selected.PnpDeviceId) return;
+                if (!force && catalogs.TryGetValue(selected.PnpDeviceId, out var cached))
+                {
+                    ApplyCatalog(selected, cached);
+                    UpdateSelection();
+                    return;
+                }
+                CancelReleaseCheck();
+                ResetChannels();
+                using CancellationTokenSource request = new();
+                releaseCheck = request;
+                checkingDevice = selected.PnpDeviceId;
+                releaseView.ShowChecking();
+                UpdateSelection();
+                try
+                {
+                    GpuDriverCatalog catalog = await _gpuDriverService.ReadDriverChannelsAsync(selected, request.Token);
+                    if (window.IsClosed || request.IsCancellationRequested || releaseCheck != request ||
+                        GetSelection()?.PnpDeviceId != selected.PnpDeviceId) return;
+                    catalogs[selected.PnpDeviceId] = catalog;
+                    ApplyCatalog(selected, catalog);
+                }
+                catch (OperationCanceledException) { /* Selection, refresh or close invalidates this response. */ }
+                finally
+                {
+                    if (releaseCheck == request)
+                    {
+                        releaseCheck = null;
+                        checkingDevice = null;
+                        if (!window.IsClosed) UpdateSelection();
+                    }
+                }
+            }
 
             ListViewItem CreateItem(GpuDriverEntry entry)
             {
@@ -4493,7 +4586,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 row.Padding = new Thickness(8, 7, 8, 7);
                 AddGpuGridText(row, entry.Name, 0, false);
                 AddGpuGridText(row, entry.Vendor, 1, false);
-                AddGpuGridText(row, Fallback(entry.DriverVersion), 2, false);
+                AddGpuGridText(row, GpuDriverUpdates.DisplayInstalledVersion(entry.Vendor, entry.DriverVersion), 2, false);
                 AddGpuGridText(row, Fallback(entry.DriverDate), 3, false);
                 string state = !entry.DriverInstalled
                     ? "RECOVERY"
@@ -4530,9 +4623,25 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 refreshButton.IsEnabled = !busy;
                 bool supported = !busy && selected is not null &&
                     selected.Vendor is "NVIDIA" or "AMD" or "Intel";
-                window.PrimaryButton.IsEnabled = supported;
-                window.SecondaryButton.IsEnabled = supported && selected!.DriverInstalled;
+                bool checking = selected is not null && checkingDevice == selected.PnpDeviceId;
+                var choice = GetChoice();
+                bool canInstall = supported && !checking && choice is not null;
+                GpuDriverUpdate? update = null;
+                if (!checking && selected is not null && catalogs.TryGetValue(selected.PnpDeviceId, out var catalog))
+                {
+                    update = choice is null ? new(GpuUpdateState.Unavailable, null, catalog.CheckedAt,
+                        (catalog.Choices.Count > 0 ? "The previously selected driver type is unavailable. Select another verified type explicitly. " : "No compatible driver type was verified. ") + catalog.Detail)
+                        : GpuDriverUpdates.Evaluate(selected.Vendor, selected.DriverVersion, selected.DriverInstalled, choice.Release, catalog.CheckedAt);
+                    if (choice is not null && catalog.Detail.Length > 0) update = update with { Detail = update.Detail + "\nOther catalog results:\n" + catalog.Detail };
+                    releaseView.ShowResult(update);
+                }
+                else if (!checking) releaseView.ShowNotChecked();
+                if (update?.State == GpuUpdateState.NewerInstalled) canInstall = false;
+                gpuHeader.InstallButton.IsEnabled = canInstall;
+                gpuHeader.RepairButton.IsEnabled = canInstall && selected!.DriverInstalled;
+                gpuHeader.ChannelPicker.IsEnabled = supported && !checking && gpuHeader.ChannelPicker.Items.Count > 0;
                 officialSourceButton.IsEnabled = supported;
+                gpuHeader.CheckButton.IsEnabled = supported && !checking;
                 if (selected is null)
                 {
                     return;
@@ -4556,9 +4665,14 @@ namespace Naufal_Windows_Tech_s_Powertoys
             async Task RefreshInventoryAsync(string? preserveDeviceId = null)
             {
                 if (inventoryLoading || window.IsClosed) return;
+                CancelReleaseCheck();
+                catalogs.Clear();
+                ResetChannels();
+                releaseView.ShowNotChecked();
+                gpuHeader.CheckButton.IsEnabled = false;
                 inventoryLoading = true;
-                window.PrimaryButton.IsEnabled = false;
-                window.SecondaryButton.IsEnabled = false;
+                gpuHeader.InstallButton.IsEnabled = false;
+                gpuHeader.RepairButton.IsEnabled = false;
                 officialSourceButton.IsEnabled = false;
                 refreshButton.IsEnabled = false;
                 statusText.Text = "Reading display-adapter inventory...";
@@ -4620,6 +4734,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 {
                     inventoryLoading = false;
                     UpdateSelection();
+                    _ = CheckUpdatesAsync();
                 }
             }
 
@@ -4628,12 +4743,14 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 if (inventoryLoading || window.IsClosed) return;
                 using IDisposable? operationLease = gpuGate.TryEnter();
                 if (operationLease is null) return;
+                CancelReleaseCheck();
                 try
                 {
                     UpdateSelection();
 
                 GpuDriverEntry? selected = GetSelection();
-                if (selected is null)
+                GpuDriverChoice? choice = GetChoice();
+                if (selected is null || choice is null)
                 {
                     return;
                 }
@@ -4641,9 +4758,12 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 string action = mode == GpuDriverOperationMode.Repair
                     ? "Repair driver"
                     : UiTextKeys.DownloadInstall;
-                string explanation = mode == GpuDriverOperationMode.Repair
-                    ? $"Download the official {selected.Vendor} package matching the installed branch and silently re-install it for {selected.Name}?"
-                    : $"Resolve, download, verify, and silently install the current official {selected.Vendor} package for {selected.Name}?";
+                string explanation = $"{choice.Name}\nSelected release: {choice.Release.Version}\n" +
+                    $"GPU: {selected.Name}\nInstalled: {GpuDriverUpdates.DisplayInstalledVersion(selected.Vendor, selected.DriverVersion)}\n\n" +
+                    (mode == GpuDriverOperationMode.Repair
+                        ? "Download and re-install this selected driver type/release? This may update the installed version or switch its driver type; it is not necessarily same-version repair."
+                        : "Download, verify and install this selected driver type/release? Choosing a different type switches the driver channel.") +
+                    "\nThe selected type will be revalidated for this GPU/OS. No substitute channel or automatic downgrade is allowed.";
                 if (selected.PortableSystem)
                 {
                     explanation += " This is a portable/hybrid system; its manufacturer may provide a customized graphics driver.";
@@ -4667,8 +4787,8 @@ namespace Naufal_Windows_Tech_s_Powertoys
                     return;
                 }
 
-                window.PrimaryButton.IsEnabled = false;
-                window.SecondaryButton.IsEnabled = false;
+                gpuHeader.InstallButton.IsEnabled = false;
+                gpuHeader.RepairButton.IsEnabled = false;
                 officialSourceButton.IsEnabled = false;
                 refreshButton.IsEnabled = false;
                 string[] stages =
@@ -4693,7 +4813,9 @@ namespace Naufal_Windows_Tech_s_Powertoys
                     GpuDriverOperationResult result = await _gpuDriverService.RunDriverOperationAsync(
                         selected,
                         mode,
-                        progressWindow.Progress);
+                        progressWindow.Progress,
+                        channel: choice.Id,
+                        expectedVersion: choice.Release.Version);
                     TaskStatusMessage = result.Success
                         ? result.WarningCount > 0 || result.RestartRequired
                             ? "TASKS: WARNING"
@@ -4740,11 +4862,28 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 finally
                 {
                     operationLease.Dispose();
-                    if (!window.IsClosed) UpdateSelection();
+                    if (!window.IsClosed)
+                    {
+                        UpdateSelection();
+                        _ = CheckUpdatesAsync();
+                    }
                 }
             }
 
-            list.SelectionChanged += (_, _) => UpdateSelection();
+            list.SelectionChanged += (_, _) =>
+            {
+                CancelReleaseCheck();
+                ResetChannels();
+                UpdateSelection();
+                _ = CheckUpdatesAsync();
+            };
+            gpuHeader.ChannelPicker.SelectionChanged += (_, _) =>
+            {
+                if (bindingChannels || gpuGate.IsBusy || inventoryLoading) return;
+                if (GetSelection() is { } device && GetChoice() is { } choice) selectedChannels[device.PnpDeviceId] = choice.Id;
+                UpdateSelection();
+            };
+            gpuHeader.CheckButton.Click += async (_, _) => await CheckUpdatesAsync(force: true);
             officialSourceButton.Click += (_, _) =>
             {
                 GpuDriverEntry? selected = GetSelection();
@@ -4761,9 +4900,9 @@ namespace Naufal_Windows_Tech_s_Powertoys
             };
             refreshButton.Click += async (_, _) =>
                 await RefreshInventoryAsync(GetSelection()?.PnpDeviceId);
-            window.PrimaryButton.Click += async (_, _) =>
+            gpuHeader.InstallButton.Click += async (_, _) =>
                 await RunOperationAsync(GpuDriverOperationMode.InstallOrUpdate);
-            window.SecondaryButton.Click += async (_, _) =>
+            gpuHeader.RepairButton.Click += async (_, _) =>
                 await RunOperationAsync(GpuDriverOperationMode.Repair);
 
             await RefreshInventoryAsync();

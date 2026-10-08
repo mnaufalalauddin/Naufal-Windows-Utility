@@ -11,7 +11,6 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -58,16 +57,11 @@ namespace Naufal_Windows_Tech_s_Powertoys
         IReadOnlyList<string> Arguments,
         IReadOnlySet<int> AcceptedExitCodes,
         string Resolver,
-        Uri CatalogUri);
+        Uri CatalogUri,
+        IReadOnlyList<string>? DriverVersions = null);
 
-    internal sealed class GpuDriverService
+    internal sealed partial class GpuDriverService
     {
-        private sealed record NvidiaCandidate(
-            string Version,
-            Uri Uri,
-            string ReleaseDate,
-            string Source);
-
         private sealed record IntelFamily(
             string PageId,
             Uri PageUri,
@@ -90,12 +84,6 @@ namespace Naufal_Windows_Tech_s_Powertoys
         private static readonly TimeSpan CatalogTimeout = TimeSpan.FromSeconds(45);
         private static readonly Regex DeviceIdPattern = new(
             @"(?i)\bDEV_([0-9A-F]{4})\b",
-            RegexOptions.CultureInvariant);
-        private static readonly Regex NvidiaVersionPattern = new(
-            @"^\d{3}\.\d{2}$",
-            RegexOptions.CultureInvariant);
-        private static readonly Regex HtmlTagPattern = new(
-            @"<[^>]+>",
             RegexOptions.CultureInvariant);
         private static readonly HttpClient HttpClient = CreateHttpClient();
         private static readonly IReadOnlyDictionary<string, string> NvidiaPciNames =
@@ -207,7 +195,9 @@ namespace Naufal_Windows_Tech_s_Powertoys
             GpuDriverEntry entry,
             GpuDriverOperationMode mode,
             IProgress<MaintenanceProgressUpdate>? progress = null,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            GpuDriverChannel? channel = null,
+            string? expectedVersion = null)
         {
             const int stageCount = 6;
             StringBuilder report = new();
@@ -241,7 +231,8 @@ namespace Naufal_Windows_Tech_s_Powertoys
             try
             {
                 ReportStage(progress, 1, stageCount, "Resolve official GPU driver", "Resolving the current official vendor package...");
-                GpuDriverPackage package = await ResolvePackageAsync(entry, mode, cancellationToken);
+                if (channel is null) throw new InvalidOperationException("Select a verified driver type before installing or repairing.");
+                GpuDriverPackage package = await ResolveSelectedPackageAsync(entry, channel.Value, expectedVersion, cancellationToken);
                 report.AppendLine("[1/6] Resolve official GPU driver");
                 report.AppendLine($"Resolver: {package.Resolver}");
                 report.AppendLine($"Catalog: {package.CatalogUri}");
@@ -372,6 +363,8 @@ namespace Naufal_Windows_Tech_s_Powertoys
 
                 DriverVersionMatch targetMatch = GpuDriverVersionVerification.Compare(
                     entry.Vendor, after.DriverVersion, package.OnlineVersion);
+                if (entry.Vendor == "AMD" && package.DriverVersions is { Count: > 0 })
+                    targetMatch = package.DriverVersions.Contains(after.DriverVersion) ? DriverVersionMatch.Matched : DriverVersionMatch.Mismatch;
                 if (targetMatch == DriverVersionMatch.Mismatch && !restartRequired)
                     throw new InvalidOperationException(
                         $"The active driver does not match the selected package. Target={package.OnlineVersion}; active={after.DriverVersion}. Installation was not verified.");
@@ -529,346 +522,6 @@ namespace Naufal_Windows_Tech_s_Powertoys
                        ReadString(device, "ClassGUID"),
                        DisplayClassGuid,
                        StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static async Task<GpuDriverPackage> ResolvePackageAsync(
-            GpuDriverEntry entry,
-            GpuDriverOperationMode mode,
-            CancellationToken cancellationToken)
-        {
-            return entry.Vendor switch
-            {
-                "NVIDIA" => await ResolveNvidiaPackageAsync(entry, mode, cancellationToken),
-                "AMD" => await ResolveAmdPackageAsync(entry, mode, cancellationToken),
-                "Intel" => await ResolveIntelPackageAsync(entry, mode, cancellationToken),
-                _ => throw new InvalidOperationException("Automatic GPU driver download supports Intel, NVIDIA and AMD only.")
-            };
-        }
-
-        private static async Task<GpuDriverPackage> ResolveNvidiaPackageAsync(
-            GpuDriverEntry entry,
-            GpuDriverOperationMode mode,
-            CancellationToken cancellationToken)
-        {
-            string component = entry.Name;
-            if (!component.Contains("GeForce", StringComparison.OrdinalIgnoreCase) &&
-                NvidiaPciNames.TryGetValue(entry.PciDeviceId, out string? resolvedName))
-            {
-                component = resolvedName;
-            }
-
-            string installedMarketing = entry.DriverInstalled
-                ? ConvertNvidiaWindowsVersion(entry.DriverVersion)
-                : string.Empty;
-            string flavor = entry.PortableSystem ? "notebook" : "desktop";
-            if (mode == GpuDriverOperationMode.Repair)
-            {
-                if (!entry.DriverInstalled || string.IsNullOrWhiteSpace(installedMarketing))
-                {
-                    throw new InvalidOperationException("No NVIDIA vendor driver is installed. Use Download & install for basic-display recovery.");
-                }
-                NvidiaCandidate repair = CreateNvidiaStandardCandidate(
-                    installedMarketing,
-                    flavor,
-                    "NVIDIA installed-version repair package");
-                return CreateNvidiaPackage(repair);
-            }
-            if (!component.Contains("GeForce", StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidOperationException($"The NVIDIA GeForce model behind PCI DEV_{entry.PciDeviceId} could not be identified safely.");
-            }
-
-            List<NvidiaCandidate> candidates = new();
-            try
-            {
-                string lookupXml = await FetchCatalogTextAsync(
-                    new Uri("https://www.nvidia.com/Download/API/lookupValueSearch.aspx?TypeID=3&ParentID=0"),
-                    "NVIDIA",
-                    cancellationToken);
-                XDocument document = XDocument.Parse(lookupXml, LoadOptions.None);
-                string target = NormalizeGpuLookupName(component);
-                var mappings = document.Descendants()
-                    .Where(node => node.Name.LocalName.Equals("LookupValue", StringComparison.OrdinalIgnoreCase))
-                    .Select(node => new
-                    {
-                        Name = ReadXmlValue(node, "Name"),
-                        Value = ReadXmlValue(node, "Value"),
-                        ParentId = ReadXmlValue(node, "ParentID")
-                    })
-                    .Where(item => !string.IsNullOrWhiteSpace(item.Value))
-                    .Select(item => new
-                    {
-                        item.Name,
-                        item.Value,
-                        item.ParentId,
-                        Normalized = NormalizeGpuLookupName(item.Name)
-                    })
-                    .Where(item => item.Normalized == target ||
-                                   (!string.IsNullOrWhiteSpace(item.Normalized) &&
-                                    (target.Contains(item.Normalized, StringComparison.Ordinal) ||
-                                     item.Normalized.Contains(target, StringComparison.Ordinal))))
-                    .OrderByDescending(item => item.Name.Length)
-                    .Take(6)
-                    .ToArray();
-
-                foreach (var mapping in mappings)
-                {
-                    foreach ((string downloadType, string sort) in new[]
-                    {
-                        ("1", "0"),
-                        ("-1", "1"),
-                        ("-1", "0")
-                    })
-                    {
-                        Uri query = new(
-                            $"https://gfwsl.geforce.com/services_toolkit/services/com/nvidia/services/AjaxDriverService.php?func=DriverManualLookup&psid={Uri.EscapeDataString(mapping.ParentId)}&pfid={Uri.EscapeDataString(mapping.Value)}&osID=57&languageCode=1033&beta=0&isWHQL=1&dltype={downloadType}&dch=1&upCRD=0&qnf=0&sort1={sort}&numberOfResults=10");
-                        string json = await FetchCatalogTextAsync(query, "NVIDIA", cancellationToken);
-                        AddNvidiaJsonCandidates(json, candidates);
-                    }
-                }
-            }
-            catch
-            {
-                // NVIDIA's legacy lookup matrix is not always available. The
-                // independently published Game Ready WHQL page is the fallback.
-            }
-
-            bool modernGeForce = Regex.IsMatch(
-                component,
-                @"(?i)GeForce\s+(RTX\s+(20|30|40|50)|GTX\s+16)",
-                RegexOptions.CultureInvariant);
-            if (candidates.Count == 0 && modernGeForce)
-            {
-                foreach (string page in new[]
-                {
-                    "https://www.nvidia.com/Download/processFind.aspx?ctk=0&dtcid=1&lang=en-us&lid=1&osid=57&whql=1",
-                    "https://www.nvidia.com/Download/processFind.aspx?dtcid=1&lang=en-us&lid=1&osid=57"
-                })
-                {
-                    try
-                    {
-                        string html = await FetchCatalogTextAsync(new Uri(page), "NVIDIA", cancellationToken);
-                        foreach (Match match in Regex.Matches(
-                            html,
-                            @"(?is)GeForce\s+Game\s+Ready\s+Driver.{0,1800}?([0-9]{3}\.[0-9]{2})"))
-                        {
-                            candidates.Add(CreateNvidiaStandardCandidate(
-                                match.Groups[1].Value,
-                                flavor,
-                                "NVIDIA generic Game Ready WHQL catalog"));
-                        }
-                    }
-                    catch
-                    {
-                    }
-                }
-            }
-
-            if (candidates.Count == 0 && !string.IsNullOrWhiteSpace(installedMarketing))
-            {
-                candidates.Add(CreateNvidiaStandardCandidate(
-                    installedMarketing,
-                    flavor,
-                    "NVIDIA installed-version fallback"));
-            }
-            if (candidates.Count == 0)
-            {
-                throw new InvalidOperationException("NVIDIA did not expose a usable official Game Ready package. Open Official source and retry later.");
-            }
-
-            NvidiaCandidate selected = candidates
-                .Where(candidate => IsApprovedDownloadUri(candidate.Uri, "NVIDIA"))
-                .OrderByDescending(candidate => ParseVersion(candidate.Version))
-                .FirstOrDefault()
-                ?? throw new InvalidOperationException("NVIDIA driver resolution did not produce an approved package.");
-            if (!string.IsNullOrWhiteSpace(installedMarketing) &&
-                ParseVersion(selected.Version) < ParseVersion(installedMarketing))
-            {
-                selected = CreateNvidiaStandardCandidate(
-                    installedMarketing,
-                    flavor,
-                    $"NVIDIA no-downgrade fallback; catalog reported {selected.Version}");
-            }
-            return CreateNvidiaPackage(selected);
-        }
-
-        private static async Task<GpuDriverPackage> ResolveAmdPackageAsync(
-            GpuDriverEntry entry,
-            GpuDriverOperationMode mode,
-            CancellationToken cancellationToken)
-        {
-            if (mode == GpuDriverOperationMode.Repair && !entry.DriverInstalled)
-            {
-                throw new InvalidOperationException("No AMD vendor driver is installed. Use Download & install for basic-display recovery.");
-            }
-            Uri catalog = new("https://www.amd.com/en/support/download/drivers.html");
-            string html = WebUtility.HtmlDecode(
-                (await FetchCatalogTextAsync(catalog, "AMD", cancellationToken)).Replace("\\/", "/", StringComparison.Ordinal));
-            string[] urls = Regex.Matches(
-                    html,
-                    @"https://drivers\.amd\.com/[^""'<>\s]+?\.exe",
-                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
-                .Select(match => match.Value)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToArray();
-            string? selected = urls.FirstOrDefault(value =>
-                value.Contains("minimalsetup", StringComparison.OrdinalIgnoreCase) ||
-                value.Contains("_web.exe", StringComparison.OrdinalIgnoreCase) ||
-                value.Contains("installer/", StringComparison.OrdinalIgnoreCase))
-                ?? urls.FirstOrDefault();
-            if (selected is null || !Uri.TryCreate(selected, UriKind.Absolute, out Uri? uri) ||
-                !IsApprovedDownloadUri(uri, "AMD"))
-            {
-                throw new InvalidOperationException("AMD's official page did not expose an approved Auto-Detect installer URL.");
-            }
-            string fileName = SafeFileName(uri, "amd-driver-autodetect.exe");
-            Match version = Regex.Match(fileName, @"(?i)(\d{2}\.\d+(?:\.\d+)?)");
-            return new GpuDriverPackage(
-                "AMD",
-                uri,
-                fileName,
-                version.Success ? version.Groups[1].Value : string.Empty,
-                string.Empty,
-                string.Empty,
-                new[] { "Advanced Micro Devices", "AMD" },
-                new[] { "-install" },
-                new HashSet<int> { 0, 3, 3010, 1641 },
-                mode == GpuDriverOperationMode.Repair
-                    ? "AMD official Auto-Detect repair/update"
-                    : "AMD official Auto-Detect install/recovery",
-                catalog);
-        }
-
-        private static async Task<GpuDriverPackage> ResolveIntelPackageAsync(
-            GpuDriverEntry entry,
-            GpuDriverOperationMode mode,
-            CancellationToken cancellationToken)
-        {
-            if (mode == GpuDriverOperationMode.Repair && !entry.DriverInstalled)
-            {
-                throw new InvalidOperationException("No Intel vendor driver is installed. Use Download & install for basic-display recovery.");
-            }
-            IntelFamily family = GetIntelFamily(entry)
-                ?? throw new InvalidOperationException($"Intel PCI DEV_{entry.PciDeviceId} could not be mapped safely to a generic Intel graphics package.");
-            string html = WebUtility.HtmlDecode(
-                (await FetchCatalogTextAsync(family.PageUri, "Intel", cancellationToken)).Replace("\\/", "/", StringComparison.Ordinal));
-            Match direct = Regex.Match(
-                html,
-                @"https://downloadmirror\.intel\.com/\d+/[^""'<>\s]+?\.exe",
-                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-            Match fileMatch = Regex.Match(
-                html,
-                @"(?i)gfx_win_[0-9.]+\.exe",
-                RegexOptions.CultureInvariant);
-            string fileName = fileMatch.Success ? fileMatch.Value : string.Empty;
-            string url = direct.Success ? direct.Value : string.Empty;
-            if (string.IsNullOrWhiteSpace(url))
-            {
-                Match id = Regex.Match(
-                    html,
-                    @"(?i)(?:downloadId|download-id|downloadid)[^0-9]{0,12}(\d{5,9})",
-                    RegexOptions.CultureInvariant);
-                if (id.Success && !string.IsNullOrWhiteSpace(fileName))
-                {
-                    url = $"https://downloadmirror.intel.com/{id.Groups[1].Value}/{fileName}";
-                }
-            }
-            if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) ||
-                !IsApprovedDownloadUri(uri, "Intel"))
-            {
-                throw new InvalidOperationException($"Intel page {family.PageId} did not expose an approved downloadmirror.intel.com package.");
-            }
-            if (string.IsNullOrWhiteSpace(fileName))
-            {
-                fileName = SafeFileName(uri, "intel-graphics-driver.exe");
-            }
-            Match hash = Regex.Match(
-                html,
-                @"(?i)SHA256\s*[:=]?\s*([A-F0-9]{64})",
-                RegexOptions.CultureInvariant);
-            Match version = Regex.Match(
-                html,
-                @"(?i)(?:Graphics Driver|Driver)\s+([0-9]+(?:\.[0-9]+){2,3})",
-                RegexOptions.CultureInvariant);
-            return new GpuDriverPackage(
-                "Intel",
-                uri,
-                fileName,
-                version.Success ? version.Groups[1].Value : string.Empty,
-                string.Empty,
-                hash.Success ? hash.Groups[1].Value.ToUpperInvariant() : string.Empty,
-                new[] { "Intel Corporation", "Intel" },
-                new[] { "--overwrite", "-s" },
-                new HashSet<int> { 0, 3010, 1641 },
-                $"Intel official {family.Name} page {family.PageId}",
-                family.PageUri);
-        }
-
-        private static NvidiaCandidate CreateNvidiaStandardCandidate(
-            string version,
-            string flavor,
-            string source)
-        {
-            if (!NvidiaVersionPattern.IsMatch(version))
-            {
-                throw new InvalidOperationException($"'{version}' is not a valid NVIDIA package version.");
-            }
-            Uri uri = new($"https://us.download.nvidia.com/Windows/{version}/{version}-{flavor}-win10-win11-64bit-international-dch-whql.exe");
-            if (!IsApprovedDownloadUri(uri, "NVIDIA"))
-            {
-                throw new InvalidOperationException("The generated NVIDIA package URL did not pass the official-host allow-list.");
-            }
-            return new NvidiaCandidate(version, uri, string.Empty, source);
-        }
-
-        private static GpuDriverPackage CreateNvidiaPackage(NvidiaCandidate candidate)
-        {
-            return new GpuDriverPackage(
-                "NVIDIA",
-                candidate.Uri,
-                SafeFileName(candidate.Uri, "nvidia-display-driver.exe"),
-                candidate.Version,
-                candidate.ReleaseDate,
-                string.Empty,
-                new[] { "NVIDIA Corporation", "NVIDIA" },
-                new[] { "/s" },
-                new HashSet<int> { 0, 1, 3010, 1641 },
-                candidate.Source,
-                new Uri("https://www.nvidia.com/en-us/drivers/"));
-        }
-
-        private static void AddNvidiaJsonCandidates(
-            string json,
-            ICollection<NvidiaCandidate> candidates)
-        {
-            using JsonDocument document = JsonDocument.Parse(json);
-            if (!TryGetJsonProperty(document.RootElement, "IDS", out JsonElement ids) ||
-                ids.ValueKind != JsonValueKind.Array)
-            {
-                return;
-            }
-            foreach (JsonElement row in ids.EnumerateArray())
-            {
-                if (!TryGetJsonProperty(row, "downloadInfo", out JsonElement info))
-                {
-                    continue;
-                }
-                string url = ReadJsonString(info, "DownloadURL");
-                string version = ReadJsonString(info, "Version");
-                string releaseDate = ReadJsonString(info, "ReleaseDate");
-                url = WebUtility.HtmlDecode(url).Trim();
-                if (!NvidiaVersionPattern.IsMatch(version) ||
-                    !Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) ||
-                    !IsApprovedDownloadUri(uri, "NVIDIA"))
-                {
-                    continue;
-                }
-                candidates.Add(new NvidiaCandidate(
-                    version,
-                    uri,
-                    releaseDate,
-                    "NVIDIA DriverManualLookup"));
-            }
         }
 
         private static async Task<long> DownloadPackageAsync(
@@ -1127,53 +780,6 @@ namespace Naufal_Windows_Tech_s_Powertoys
                    ?? element.Attributes().FirstOrDefault(attribute =>
                        attribute.Name.LocalName.Equals(name, StringComparison.OrdinalIgnoreCase))?.Value
                    ?? string.Empty;
-        }
-
-        private static bool TryGetJsonProperty(
-            JsonElement element,
-            string name,
-            out JsonElement value)
-        {
-            if (element.ValueKind == JsonValueKind.Object)
-            {
-                foreach (JsonProperty property in element.EnumerateObject())
-                {
-                    if (property.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
-                    {
-                        value = property.Value;
-                        return true;
-                    }
-                }
-            }
-            value = default;
-            return false;
-        }
-
-        private static string ReadJsonString(JsonElement element, string name)
-        {
-            return TryGetJsonProperty(element, name, out JsonElement value)
-                ? value.ToString().Trim()
-                : string.Empty;
-        }
-
-        private static string NormalizeGpuLookupName(string value)
-        {
-            string normalized = Regex.Replace(value, @"(?i)\bNVIDIA\b", string.Empty);
-            normalized = Regex.Replace(normalized, @"(?i)\bIntel\(R\)\b", "Intel");
-            normalized = Regex.Replace(normalized, @"[^A-Za-z0-9]+", " ");
-            return Regex.Replace(normalized, @"\s+", " ").Trim().ToUpperInvariant();
-        }
-
-        private static string ConvertNvidiaWindowsVersion(string value)
-        {
-            return GpuDriverVersionVerification.NvidiaMarketingVersion(value);
-        }
-
-        private static Version ParseVersion(string value)
-        {
-            return Version.TryParse(value, out Version? version)
-                ? version
-                : new Version(0, 0);
         }
 
         private static IntelFamily? GetIntelFamily(GpuDriverEntry entry)

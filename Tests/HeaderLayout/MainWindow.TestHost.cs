@@ -86,10 +86,12 @@ public sealed partial class MainWindow : Window
                 popup.Hide();
             }
             await CheckNavigationAsync();
+            await CheckNavigationPaneAsync();
             await CheckDynamicButtonsAsync();
             await SaveThemePreviewsAsync();
             await CheckDiskDashboardAsync();
             await CheckDialogScrollingAsync();
+            await CheckGpuUpdatesAsync();
             File.AppendAllText(App.ResultPath, $"PASS: {_checks} native WinUI assertions, {_cases} layout cases, 8 flyouts. Minimum header contrast: {_minimumHeaderContrast:F2}:1; button contrast: {_minimumButtonContrast:F2}:1. No Windows settings changed.\n");
             Environment.ExitCode = 0;
         }
@@ -105,21 +107,87 @@ public sealed partial class MainWindow : Window
     {
         var pages = new FrameworkElement[] { HomePage, RepairPage, InfoPage, SecurityPage, AdvancedPage };
         Check(MainNavigation.MenuItems.Count == 5, "exactly five navigation pages");
+        foreach (int width in new[] { 1920, 1280, 800, 480 })
         foreach (ElementTheme theme in new[] { ElementTheme.Light, ElementTheme.Dark })
+        foreach (int percent in new[] { 25, 100, 200 })
         {
+            AppWindow.Resize(new SizeInt32(width, 1000));
             if (UiDisplaySettings.Theme != theme) UiDisplaySettings.ToggleTheme();
+            UiDisplaySettings.SetTextScale(percent);
+            // Let the automatic sidebar transition finish before comparing pages.
+            await Task.Delay(400);
+            Rect? homeToolbar = null;
             for (int index = 0; index < pages.Length; index++)
             {
+                _case = $"navigation width={width}, theme={theme}, scale={percent}, page={pages[index].Name}";
                 MainNavigation.SelectedItem = MainNavigation.MenuItems[index];
                 await Task.Delay(40);
+                if (MainNavigation.DisplayMode != NavigationViewDisplayMode.Expanded) MainNavigation.IsPaneOpen = false;
                 RootLayout.UpdateLayout();
                 Check(pages[index].Visibility == Visibility.Visible, "selected page visible");
                 Check(pages.Count(p => p.Visibility == Visibility.Visible) == 1, "only one page visible");
                 CheckButtons();
+                CheckUtilityButtonLayout();
+                CheckUtilityViewport();
+                Rect toolbar = UtilityButtonsGrid.TransformToVisual(RootLayout).TransformBounds(
+                    new Rect(0, 0, UtilityButtonsGrid.ActualWidth, UtilityButtonsGrid.ActualHeight));
+                Point pageOrigin = pages[index].TransformToVisual(RootLayout).TransformPoint(new Point());
+                Check(Math.Abs(pageOrigin.X - toolbar.Left) <= 1, "page and shared toolbar have the same left edge");
+                homeToolbar ??= toolbar;
+                Check(Math.Abs(toolbar.Left - homeToolbar.Value.Left) <= 1 && Math.Abs(toolbar.Width - homeToolbar.Value.Width) <= 1,
+                    $"toolbar position/width stable across pages: Home={homeToolbar}, current={toolbar}");
+                _cases++;
             }
         }
         MainNavigation.SelectedItem = MainNavigation.MenuItems[0];
         await Task.Delay(60);
+    }
+
+    private async Task CheckNavigationPaneAsync()
+    {
+        AppWindow.Resize(new SizeInt32(1280, 1000));
+        UiDisplaySettings.SetTextScale(100);
+        MainNavigation.SelectedItem = MainNavigation.MenuItems[2];
+        var inventory = InfoPage.Children.OfType<Expander>().Single();
+        string originalText = CatalogInventoryText.Text;
+        try
+        {
+            CatalogInventoryText.Text = new string('W', 800) + "\n" + string.Join("\n", Enumerable.Repeat("Synthetic inventory row", 30));
+            inventory.IsExpanded = true;
+            foreach (ElementTheme theme in new[] { ElementTheme.Light, ElementTheme.Dark })
+            foreach (bool paneOpen in new[] { false, true })
+            {
+                _case = $"expanded inventory, theme={theme}, sidebar open={paneOpen}";
+                if (UiDisplaySettings.Theme != theme) UiDisplaySettings.ToggleTheme();
+                MainNavigation.IsPaneOpen = paneOpen;
+                await Task.Delay(400);
+                RootLayout.UpdateLayout();
+                CheckUtilityButtonLayout();
+                CheckUtilityViewport();
+                _cases++;
+            }
+        }
+        finally
+        {
+            CatalogInventoryText.Text = originalText;
+            inventory.IsExpanded = false;
+            MainNavigation.SelectedItem = MainNavigation.MenuItems[0];
+        }
+    }
+
+    private void CheckUtilityViewport()
+    {
+        var viewport = (ScrollViewer)MainNavigation.Content;
+        Rect viewportBounds = viewport.TransformToVisual(RootLayout).TransformBounds(new Rect(0, 0, viewport.ActualWidth, viewport.ActualHeight));
+        foreach (Button button in new[] { AboutButton, TaskStatusButton, ExitButton })
+        {
+            Rect bounds = button.TransformToVisual(RootLayout).TransformBounds(new Rect(0, 0, button.ActualWidth, button.ActualHeight));
+            Check(bounds.Left >= Math.Max(0, viewportBounds.Left) && bounds.Right <= Math.Min(RootLayout.ActualWidth, viewportBounds.Right) + 1,
+                $"{button.Name} is inside the visible navigation viewport: button={bounds}, viewport={viewportBounds}");
+            Rect hostBounds = button.TransformToVisual(null).TransformBounds(new Rect(0, 0, button.ActualWidth, button.ActualHeight));
+            Point center = new(hostBounds.X + hostBounds.Width / 2, hostBounds.Y + hostBounds.Height / 2);
+            Check(VisualTreeHelper.FindElementsInHostCoordinates(center, RootLayout).Contains(button), button.Name + " center is hit-testable on the active page");
+        }
     }
 
     private void CheckHeader()
@@ -130,6 +198,7 @@ public sealed partial class MainWindow : Window
         CheckThemePalette();
         CheckButtons();
         CheckUtilityButtonLayout();
+        CheckUtilityViewport();
         foreach (FrameworkElement control in new FrameworkElement[] { TextScaleButton, ThemeButton })
         {
             Rect bounds = control.TransformToVisual(RootLayout).TransformBounds(new Rect(0, 0, control.ActualWidth, control.ActualHeight));
@@ -352,18 +421,33 @@ public sealed partial class MainWindow : Window
             Check(MainNavigation.DisplayMode == NavigationViewDisplayMode.Expanded && MainNavigation.IsPaneOpen, "wide sidebar shows labels");
             File.AppendAllText(App.ResultPath, $"Preview navigation: width={MainNavigation.ActualWidth}; mode={MainNavigation.DisplayMode}; open={MainNavigation.IsPaneOpen}\n");
             CheckHeader();
-            RenderTargetBitmap bitmap = new();
-            await bitmap.RenderAsync(RootLayout);
-            byte[] pixels = (await bitmap.GetPixelsAsync()).ToArray();
-            Check(bitmap.PixelWidth > 0 && bitmap.PixelHeight > 0, "preview has nonzero dimensions");
-            string path = Path.Combine(AppContext.BaseDirectory, $"theme-preview-{theme.ToString().ToLowerInvariant()}.png");
-            using var file = File.Create(path);
-            using var stream = file.AsRandomAccessStream();
-            BitmapEncoder encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, stream);
-            encoder.SetPixelData(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied,
-                (uint)bitmap.PixelWidth, (uint)bitmap.PixelHeight, 96, 96, pixels);
-            await encoder.FlushAsync();
+            await SavePreviewAsync($"theme-preview-{theme.ToString().ToLowerInvariant()}.png");
+            for (int index = 1; index < MainNavigation.MenuItems.Count; index++)
+            {
+                var item = (NavigationViewItem)MainNavigation.MenuItems[index];
+                _case = $"render navigation preview {item.Tag}, {theme}";
+                MainNavigation.SelectedItem = item;
+                await Task.Delay(300);
+                RootLayout.UpdateLayout();
+                CheckUtilityViewport();
+                await SavePreviewAsync($"navigation-preview-{item.Tag}-{theme.ToString().ToLowerInvariant()}.png");
+            }
+            MainNavigation.SelectedItem = MainNavigation.MenuItems[0];
         }
+    }
+
+    private async Task SavePreviewAsync(string name)
+    {
+        RenderTargetBitmap bitmap = new();
+        await bitmap.RenderAsync(RootLayout);
+        byte[] pixels = (await bitmap.GetPixelsAsync()).ToArray();
+        Check(bitmap.PixelWidth > 0 && bitmap.PixelHeight > 0, "preview has nonzero dimensions");
+        using var file = File.Create(Path.Combine(AppContext.BaseDirectory, name));
+        using var stream = file.AsRandomAccessStream();
+        BitmapEncoder encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, stream);
+        encoder.SetPixelData(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied,
+            (uint)bitmap.PixelWidth, (uint)bitmap.PixelHeight, 96, 96, pixels);
+        await encoder.FlushAsync();
     }
 
     private static double Contrast(Windows.UI.Color a, Windows.UI.Color b)

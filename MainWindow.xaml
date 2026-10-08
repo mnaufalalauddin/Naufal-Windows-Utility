@@ -130,6 +130,7 @@
         <ContentControl x:Name="MainAnalysisHost" Grid.Row="1" Visibility="Collapsed"
                         HorizontalContentAlignment="Stretch" Margin="18,4"/>
         <NavigationView x:Name="MainNavigation" Grid.Row="2" PaneDisplayMode="Auto"
+                        HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
                         OpenPaneLength="256" CompactPaneLength="48" ExpandedModeThresholdWidth="1100"
                         CompactModeThresholdWidth="640" IsSettingsVisible="False" IsBackButtonVisible="Collapsed"
                         PaneTitle="Windows Utility" SelectionChanged="MainNavigation_SelectionChanged" ItemInvoked="MainNavigation_ItemInvoked">
@@ -140,7 +141,12 @@
                 <NavigationViewItem Content="Windows Security" Tag="Security" Icon="Permissions"/>
                 <NavigationViewItem Content="Advanced Windows Tweaks" Tag="Advanced" Icon="Setting"/>
             </NavigationView.MenuItems>
-            <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <!-- The full-width Grid owns centering of the capped content. A capped
+                 direct ScrollViewer child is offset by its narrow DesiredSize but
+                 arranged wider, which can push the shared toolbar off-screen. -->
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled" HorizontalScrollMode="Disabled"
+                          VerticalScrollBarVisibility="Auto" HorizontalContentAlignment="Stretch">
+                <Grid>
                 <StackPanel Margin="24,16,24,24" Spacing="24" MaxWidth="1320" HorizontalAlignment="Stretch">
                     <Grid ColumnSpacing="8" RowSpacing="8" x:Name="UtilityButtonsGrid" SizeChanged="HomeGrid_SizeChanged">
                         <Button x:Name="AboutButton" Content="About"
@@ -312,6 +318,7 @@
                                         Style="{StaticResource ToolButtonStyle}"/>
 </StackPanel>
                 </StackPanel>
+                </Grid>
             </ScrollViewer>
         </NavigationView>
     </Grid>
