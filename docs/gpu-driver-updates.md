@@ -3,6 +3,8 @@
 Added in the 7 October 2026 source revision, application v8.0.0.0, and included in
 the [8 October development preview](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.0-build.20261008).
 The historical 2 October preview does not contain this addition.
+The [9 October preview](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.0-build.20261009)
+also includes the Intel HTTP negotiation fix described below.
 
 ## Using the panel
 
@@ -74,9 +76,13 @@ offset, clearly labelled as not the release time.
 
 Channel verification requires live vendor access. An unavailable or empty catalog
 does not populate an unverified driver type just to keep installation enabled.
-**Official source** remains available for manual review. Intel currently returns
-HTTP 403 on the development machine; its automatic choices and resolver are
-fixture-tested, not claimed as working live on that connection.
+**Official source** remains available for manual review. The 9 October
+revision adds explicit HTML and English-language content negotiation for Intel
+catalog requests. This resolves the reproduced 403 on the development connection:
+the same URL/client returned 403 without these headers and 200 with them. This
+does not guarantee every Intel CDN/network route. No browser session, cookies,
+credentials, UA impersonation or third-party proxy is used. Download requests and
+other vendors' request headers are unchanged. The 8 October release predates this fix.
 
 Requests use approved official HTTPS hosts and a bounded timeout. Vendor changes,
 regional access restrictions or anti-bot responses can make checks temporarily
@@ -107,9 +113,11 @@ post-install target-version verification.
   Game Ready and Studio packages on 7 October. A synthetic RTX A4000 probe
   verified the workstation Enterprise catalog. A synthetic AMD RX 7900 XTX probe
   read Recommended/Optional packages but retained an ambiguous version comparison.
-  Intel's server returned HTTP 403, surfaced as unavailable, not a successful
-  check. Synthetic probes do not establish installed-hardware compatibility;
-  none of these checks installed a driver.
+  Intel initially returned HTTP 403. With the 9 October request fix, all
+  four Intel catalog probes (Arc A770, Arc Pro A60, UHD 630 and Iris Xe) read
+  versions/dates/direct-package metadata successfully. Pro and consumer catalog
+  filtering still rejects products absent from the corresponding list. Synthetic
+  probes do not establish installed-hardware compatibility; none installed a driver.
 
 Run offline tests without changing Windows:
 
@@ -122,8 +130,10 @@ Optional read-only online probes (Internet access and vendor requests):
 ```powershell
 dotnet run --project .\Tests\GpuUpdates\GpuUpdates.Tests.csproj -- --live
 dotnet run --project .\Tests\GpuUpdates\GpuUpdates.Tests.csproj -- --live-catalogs
+dotnet run --project .\Tests\GpuUpdates\GpuUpdates.Tests.csproj -- --live-intel
 ```
 
 The first uses the PC's actual GPU inventory. The second uses synthetic AMD,
-Intel and NVIDIA workstation product identities. Neither downloads driver packages, installs software or
+Intel and NVIDIA workstation product identities; the third checks four synthetic
+Intel identities against their live catalogs. None downloads driver packages, installs software or
 changes Windows settings. Live results can change after the check completes.

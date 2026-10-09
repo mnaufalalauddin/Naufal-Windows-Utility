@@ -589,6 +589,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
                     throw new InvalidOperationException($"Blocked non-approved {vendor} HTTPS host: {current.DnsSafeHost}");
                 }
                 using HttpRequestMessage request = new(HttpMethod.Get, current);
+                ConfigureCatalogRequest(request, vendor, downloadOnly);
                 HttpResponseMessage response = await HttpClient.SendAsync(
                     request,
                     completionOption,
@@ -602,7 +603,12 @@ namespace Naufal_Windows_Tech_s_Powertoys
                     current = next;
                     continue;
                 }
-                response.EnsureSuccessStatusCode();
+                if (!response.IsSuccessStatusCode)
+                {
+                    // EnsureSuccessStatusCode does not dispose the response on
+                    // modern .NET. Release failed catalog/download responses too.
+                    using (response) response.EnsureSuccessStatusCode();
+                }
                 return response;
             }
             throw new HttpRequestException("The vendor request exceeded the redirect limit.");
@@ -622,6 +628,16 @@ namespace Naufal_Windows_Tech_s_Powertoys
             client.DefaultRequestHeaders.UserAgent.ParseAdd(
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Naufal-Windows-Powertoys/1.0");
             return client;
+        }
+
+        internal static void ConfigureCatalogRequest(HttpRequestMessage request, string vendor, bool downloadOnly)
+        {
+            if (vendor != "Intel" || downloadOnly) return;
+            // Intel's HTML catalog requires explicit content/language negotiation
+            // on some CDN routes. These public English pages feed English parsers.
+            // No browser cookies, credentials, UA impersonation or proxy fallback.
+            request.Headers.Accept.ParseAdd("text/html,application/xhtml+xml");
+            request.Headers.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
         }
 
         private static bool IsApprovedCatalogUri(Uri uri, string vendor)

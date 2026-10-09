@@ -1,7 +1,7 @@
 # Naufal Windows Utility
 
 [![Source version](https://img.shields.io/badge/Source_Version-v8.0.0.0-0567ff?style=for-the-badge)](CHANGELOG.md)
-[![Development preview](https://img.shields.io/badge/Preview-8_October_2026-8250df?style=for-the-badge)](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.0-build.20261008)
+[![Development preview](https://img.shields.io/badge/Preview-9_October_2026-8250df?style=for-the-badge)](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.0-build.20261009)
 [![Windows target](https://img.shields.io/badge/Target-Windows_10_%2F_11_x64-0078d4?style=for-the-badge)](#quick-start)
 [![License](https://img.shields.io/badge/License-MIT-16803c?style=for-the-badge)](LICENSE)
 [![Interface](https://img.shields.io/badge/UI-English-8250df?style=for-the-badge)](#interface--project-status)
@@ -10,17 +10,18 @@ A native Windows dashboard to **repair system components**, **inspect disk healt
 
 Developed by **Muhammad Naufal Alauddin**. Independent, open-source, and under active development. **Not affiliated with Microsoft or Microsoft PowerToys.**
 
-**[Download installer](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.0-build.20261008)** · [Features](#whats-included) · [GPU drivers](#gpu-driver-release-notifications) · [Build from source](#build--develop) · [Changelog](CHANGELOG.md)
+**[Download installer](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.0-build.20261009)** · [Features](#whats-included) · [GPU drivers](#gpu-driver-release-notifications) · [Build from source](#build--develop) · [Changelog](CHANGELOG.md)
 
-> **8 October 2026 — GPU Driver & Header Preview**
-> Check official driver releases, choose a GPU-compatible driver type, and use
-> Check for updates / Repair driver / Download & install from one shared header.
-> NVIDIA versions now use their public format, such as **617.14**. The main
-> About / Task Monitoring / Exit header also stays inside every sidebar page.
-> This is a **pre-release**: hardware coverage is still being validated, and
-> checking for updates never installs a driver automatically.
+> **9 October 2026 — Intel Catalog Fix Preview**
+> Intel release checks now use explicit HTML/English request headers, resolving
+> the reproduced **HTTP 403** on the development connection. Live metadata probes
+> succeed for Arc, Arc Pro, UHD 630 and Iris Xe catalogs. The shared GPU action
+> header, driver-type selection and main-header alignment fixes are retained.
+> This is a **pre-release**: real driver installations and all network/hardware
+> combinations are not certified. Checking for updates never installs a driver.
 
 ## Preview
+
 
 ### Dark Mode
 
@@ -58,7 +59,7 @@ data; they are not live update results or a screenshot of the complete inventory
 
 > **Back up important data before applying tweaks.** System-changing operations may require Administrator privileges. Review each option's warning; do not apply every tweak indiscriminately.
 
-1. Open the [8 October development preview](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.0-build.20261008) and download `Naufal-Windows-Utility-Setup-8.0.0.0-x64.exe`. Compare its SHA-256 with that release's attached `SHA256SUMS.txt`. The [previous non-preview release](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/latest) remains available but does not contain all changes described here. Alternatively, [build from source](#build--develop).
+1. Open the [9 October development preview](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.0-build.20261009) and download `Naufal-Windows-Utility-Setup-8.0.0.0-x64.exe`. Compare its SHA-256 with that release's attached `SHA256SUMS.txt`. The [previous non-preview release](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/latest) remains available but does not contain all changes described here. Alternatively, [build from source](#build--develop).
 2. Run the installer, open **Naufal Windows Utility**, and review the first-run prerequisites.
 3. Choose a catalog or performance profile, read its description, and apply only the changes you need.
 4. Read analysis results inline in the tool window; Apply/Restore operations retain their separate progress and verification results. For completed changes marked restart-sensitive, the app offers **Restart now** or **Later** after active tasks finish. Save your work before accepting. Choosing Later does not schedule a reboot; restart from Windows when convenient.
@@ -98,7 +99,7 @@ Availability depends on the drive, controller, firmware, and Windows driver. End
 
 ### GPU driver release notifications
 
-The **8 October preview** includes an online release panel in **GPU Driver
+The **9 October preview** includes an online release panel in **GPU Driver
 Manager**. Opening the manager checks the selected GPU against its official
 vendor catalog; select another GPU or use **Check for updates** to inspect it.
 **Check for updates**, **Repair driver**, and **Download & install** share a
@@ -124,9 +125,12 @@ revalidation and confirmation; Repair can update/reinstall that release rather
 than silently switching channels. No substitute-channel fallback or automatic
 downgrade is performed. The selected channel is not proof of the installed channel.
 See [GPU update behavior and limitations](docs/gpu-driver-updates.md).
-Intel's catalog currently returns HTTP 403 on the development PC. Its parsing
-and channel selection are fixture-tested; live Intel access and real driver
-installation are not certified. Failed checks remain visible as unavailable.
+**Included in the 9 October preview:** explicit HTML
+and English-language request headers resolved the reproduced Intel HTTP 403.
+Live metadata checks now succeed for Arc, Arc Pro and the tested legacy/Iris Xe
+catalogs using synthetic device identities. This does not certify installation
+or universal hardware/network compatibility. Failed checks remain unavailable;
+no browser cookies, login session or third-party proxy is used.
 
 ## A simpler interface
 
@@ -272,7 +276,7 @@ The project file retains its historical filename. Passing tests is not proof tha
 
 ## Interface & Project Status
 
-**Current preview: [v8.0.0.0-build.20261008](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.0-build.20261008).**
+**Current preview: [v8.0.0.0-build.20261009](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.0-build.20261009).**
 The simplified interface retains Disk Info/SMART, repair, existing tweak and
 recovery backends, action safety checks and guarded LSA Enable. HVCI is read-only.
 The removed storage/offline/resource/background modules are test-only historical
@@ -284,7 +288,7 @@ native WinUI assertions covering 128 layout cases, scaling, both themes, long
 confirmation scrolling and inline error details. These tests do not apply host
 tweaks, restart Windows or establish live LSA/driver/controller compatibility.
 
-The GPU driver-type/header revision included in this preview passes 151 metadata/service
+The GPU driver-type/header revision included in this preview passes 163 metadata/service
 assertions and 41,521 Native AOT UI assertions, including 12 GPU-header/panel layout
 combinations and isolated button invocation. All 4,786 profile/action and 347
 English UI checks pass. [The changelog](CHANGELOG.md) records packaging results,

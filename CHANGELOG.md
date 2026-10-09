@@ -1,6 +1,6 @@
 # Naufal Windows Utility — Changelog
 
-Development history from **30 August 2026** through **8 October 2026**.
+Development history from **30 August 2026** through **9 October 2026**.
 
 **Original history snapshot:** 12 September 2026, 00:39:41 WIB (Asia/Jakarta, UTC+07:00).
 Later development entries are appended below with their own dates.
@@ -21,6 +21,37 @@ mutation, complete visual validation, or full behavioral parity.
 Historical report filenames identify the records used when this history was
 assembled. Reports not included in this repository are shown as plain references,
 not download links; private backups and raw machine evidence are not published.
+
+## 9 October 2026 — Intel Catalog Fix Preview
+
+- **Release:** `v8.0.0.0-build.20261009`, application/installer v8.0.0.0. A new
+  development pre-release containing the Intel request fix and all changes from
+  the 8 October preview. README's banner, download links, preview overview and
+  verification notes now point to this build. Previous releases remain intact.
+
+- **Diagnosis:** The Intel driver page loads in the maintainer's Chrome, while
+  the existing application's HTTP request returns 403. A controlled same-client,
+  same-URL comparison reproduced 403 without explicit content/language headers
+  and 200 with HTML and English-language negotiation.
+- **Fixed:** Intel catalog requests now send `Accept: text/html,application/xhtml+xml`
+  and `Accept-Language: en-US,en;q=0.9`, including each approved redirect.
+  Other vendors and binary downloads are unchanged. No browser cookie/session,
+  credentials, UA impersonation, proxy or hardcoded latest version is used.
+  Failed HTTP responses are also disposed before propagating their error.
+- **Live metadata:** Synthetic Arc A770, Arc Pro A60, UHD 630 and Iris Xe probes
+  successfully read versions 32.0.101.9034, 32.0.101.8976, 31.0.101.2145 and
+  32.0.101.7092 respectively, including release dates and approved package URLs.
+  Incompatible Arc/Pro choices remain excluded. This is catalog evidence, not
+  installed-hardware certification; no driver package was downloaded or installed.
+- **Regression checks:** 163 GPU metadata/service assertions, 4,786 profile/action
+  assertions, 347 English UI checks, 33 identity checks and 92 routing checks pass.
+  A new `--live-intel` metadata-only probe covers the four catalog families.
+- **Packaging:** Fresh Native AOT / Inno Setup x64 build succeeds without
+  compiler warnings; 91 icon checks pass. Installer: 38,697,910 bytes; SHA-256:
+  `18E495AB8AE6D1DCB6F7405FE42F1DE59F67D98BBD389C0BB0FA4B897C576B0D`.
+- **Scope:** The published 8 October release is unchanged and does not contain
+  this fix. Intel may still reject requests on other CDN/network routes;
+  failed checks retain their explicit unavailable state and manual official link.
 
 ## 8 October 2026 — GPU Driver & Header Preview
 

@@ -8,9 +8,12 @@ void Check(bool condition, string message) { checks++; if (!condition) throw new
 GpuDriverEntry Entry(string vendor = "NVIDIA", string model = "NVIDIA GeForce RTX 4070 Ti SUPER", string version = "32.0.16.1714") =>
     new(model, model, vendor, version, "2026-09-01", vendor, "fixture.inf", true, "TEST-DEVICE", "2705", "https://www.nvidia.com/en-us/drivers/", true, 0, false);
 var service = new GpuDriverService();
-if (args.Contains("--live") || args.Contains("--live-catalogs"))
+if (args.Contains("--live") || args.Contains("--live-catalogs") || args.Contains("--live-intel"))
 {
     IEnumerable<GpuDriverEntry> devices = args.Contains("--live") ? await service.ReadInventoryAsync() :
+        args.Contains("--live-intel") ?
+        [Entry("Intel", "Intel Arc A770 Graphics", "31.0.101.5000"), Entry("Intel", "Intel Arc Pro A60 Graphics", "31.0.101.5000"),
+         Entry("Intel", "Intel UHD Graphics 630", "31.0.101.2000"), Entry("Intel", "Intel Iris Xe Graphics", "31.0.101.5000")] :
         [Entry("Intel", "Intel Arc A770 Graphics", "31.0.101.5000"), Entry("AMD", "AMD Radeon RX 7900 XTX", "32.0.21001.1000"), Entry("NVIDIA", "NVIDIA RTX A4000", "31.0.15.0000")];
     Console.WriteLine("READ-ONLY ONLINE PROBE; catalogs are live, no downloads/installers/Windows changes. Synthetic catalog probes are not hardware certification.");
     foreach (var device in devices)
@@ -179,4 +182,13 @@ Check(intelPackage.PublishedSha256 == new string('A', 64), "vendor-published SHA
 Check(GpuDriverChannels.IntelOsListed(IntelPage("Intel Arc A770 Graphics"), true), "Intel OS supported in actual download section");
 Check(!GpuDriverChannels.IntelOsListed(IntelPage("Intel Arc A770 Graphics").Replace("Windows 11", "Windows 10"), true), "Intel Windows 10-only package hidden on Windows 11");
 Check(GpuDriverChannels.IntelProductListed(IntelPage("Intel® Arc™ A770 Graphics (16GB)"), "Intel Arc A770 Graphics"), "Intel explicit memory-size variant accepted without broad substring model matching");
+foreach (var requestCase in new[] { ("Intel", false), ("Intel", true), ("NVIDIA", false), ("AMD", false) })
+{
+    using var request = new HttpRequestMessage(HttpMethod.Get, "https://www.intel.com/content/www/us/en/download/785597/intel-arc-graphics-windows.html");
+    GpuDriverService.ConfigureCatalogRequest(request, requestCase.Item1, requestCase.Item2);
+    bool intelMetadata = requestCase == ("Intel", false);
+    Check((request.Headers.Accept.ToString() == "text/html, application/xhtml+xml") == intelMetadata, "HTML negotiation applies only to Intel metadata, not installer binaries or other vendors");
+    Check((request.Headers.AcceptLanguage.ToString() == "en-US, en; q=0.9") == intelMetadata, "English catalog language is explicit only for Intel metadata");
+    Check(!request.Headers.Contains("Cookie") && request.Headers.Authorization is null && request.Headers.UserAgent.Count == 0, "request negotiation does not borrow browser sessions or impersonate a browser");
+}
 Console.WriteLine($"PASS: {checks} GPU release metadata/service assertions. No Windows changes or driver packages downloaded.");
