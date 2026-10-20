@@ -45,6 +45,7 @@
     <Compile Include="..\..\CompositeToolToggleService.cs" Link="CompositeToolToggleService.cs" />
     <Compile Include="..\..\PhotoViewerRegistration.cs" Link="PhotoViewerRegistration.cs" />
     <Compile Include="..\..\BuiltInAppsCatalog.cs" Link="BuiltInAppsCatalog.cs" />
+    <Compile Include="..\..\BuiltInAppsView.cs" Link="BuiltInAppsView.cs" />
     <Compile Include="..\..\CopilotStorePolicy.cs" Link="CopilotStorePolicy.cs" />
     <Compile Include="..\..\CopilotSourceConsent.cs" Link="CopilotSourceConsent.cs" />
     <Compile Include="..\..\BuiltInAppsExpansion.cs" Link="BuiltInAppsExpansion.cs" />
@@ -79,6 +80,7 @@
     <Compile Include="..\..\StoreRegistrationVerification.cs" Link="StoreRegistrationVerification.cs" />
     <Compile Include="..\..\UpdateServiceStartupPolicy.cs" Link="UpdateServiceStartupPolicy.cs" />
     <Compile Include="..\..\UpdateCacheReset.cs" Link="UpdateCacheReset.cs" />
+    <Compile Include="..\..\WindowsUpdateRepairService.cs" Link="WindowsUpdateRepairService.cs" />
     <Compile Include="..\..\NativePowerPolicyReader.cs" Link="NativePowerPolicyReader.cs" />
     <Compile Include="..\..\BoundedReadProbe.cs" Link="BoundedReadProbe.cs" />
     <Compile Include="..\..\BcdRestoreVerification.cs" Link="BcdRestoreVerification.cs" />
@@ -98,6 +100,7 @@
     <Compile Include="..\..\LiveMetricHistory.cs" Link="LiveMetricHistory.cs" />
     <Compile Include="..\..\HeaderLayoutPolicy.cs" Link="HeaderLayoutPolicy.cs" />
     <Compile Include="..\..\CatalogSelectionPlan.cs" Link="CatalogSelectionPlan.cs" />
+    <Compile Include="..\..\CatalogStateFilter.cs" Link="CatalogStateFilter.cs" />
     <Compile Include="..\..\ToggleCatalogModels.cs" Link="ToggleCatalogModels.cs" />
     <Compile Include="..\..\PerformanceProfileVerification.cs" Link="PerformanceProfileVerification.cs" />
     <Compile Include="..\..\PerformanceProfileVerificationService.cs" Link="PerformanceProfileVerificationService.cs" />

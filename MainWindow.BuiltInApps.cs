@@ -48,6 +48,18 @@ public sealed partial class MainWindow
             Grid.SetColumn(badge, i); legend.Children.Add(badge);
         }
         notes.Children.Add(legend);
+        ComboBox filter = new()
+        {
+            Header = "Show apps", HorizontalAlignment = HorizontalAlignment.Stretch,
+            MaxWidth = 500, IsEnabled = false
+        };
+        foreach (BuiltInAppFilter option in Enum.GetValues<BuiltInAppFilter>())
+            filter.Items.Add(new ComboBoxItem { Content = BuiltInAppsView.Label(option), Tag = option });
+        filter.SelectedIndex = 0;
+        notes.Children.Add(filter);
+        TextBlock summary = AppText("Checking installation status...");
+        notes.Children.Add(summary);
+        notes.Children.Add(AppText("Installed includes apps that need repair. Filtering clears hidden selections; Select visible only selects the displayed apps. Each list stays A-Z."));
         root.Children.Add(notes);
 
         StackPanel rows = new() { Spacing = 8 };
@@ -56,9 +68,11 @@ public sealed partial class MainWindow
         root.Children.Add(scroll);
         var checks = new Dictionary<string, CheckBox>();
         var labels = new Dictionary<string, TextBlock>();
+        var appRows = new Dictionary<string, Border>();
+        var states = new Dictionary<string, BuiltInAppInstallState>();
         List<Button> storeButtons = new();
         TextBlock status = AppText("Preparing...");
-        bool busy = false, inventoryKnown = false;
+        bool busy = false, inventoryKnown = false, updatingView = false;
 
         foreach (var target in BuiltInAppsCatalog.Targets)
         {
@@ -82,8 +96,11 @@ public sealed partial class MainWindow
                 ? OneDriveAppPolicy.RecoveryButton : "Microsoft Store", VerticalAlignment = VerticalAlignment.Center };
             Grid.SetColumn(store, 1);
             row.Children.Add(store);
-            rows.Children.Add(new Border { Child = row, BorderThickness = new Thickness(1),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 180, 197, 219)) });
+            Border appRow = new() { Child = row, BorderThickness = new Thickness(1),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 180, 197, 219)) };
+            rows.Children.Add(appRow);
+            appRows.Add(target.Id, appRow);
+            states.Add(target.Id, BuiltInAppInstallState.NotVerified);
             checks.Add(target.Id, check);
             labels.Add(target.Id, label);
             storeButtons.Add(store);
@@ -100,11 +117,14 @@ public sealed partial class MainWindow
                 // Opening a page never marks a package as restored. Analyze reads it again.
             };
         }
+        TextBlock empty = AppText("No apps match this filter. Choose another filter or Analyze / reload.");
+        empty.Visibility = Visibility.Collapsed;
+        rows.Children.Add(empty);
 
         StackPanel footer = new() { Spacing = 8 };
         Grid selection = new() { ColumnSpacing = 8 };
         for (int i = 0; i < 3; i++) selection.ColumnDefinitions.Add(new() { Width = new GridLength(1, GridUnitType.Star) });
-        Button all = new() { Content = "Select all", HorizontalAlignment = HorizontalAlignment.Stretch };
+        Button all = new() { Content = "Select visible", HorizontalAlignment = HorizontalAlignment.Stretch };
         Button none = new() { Content = "De-select all", HorizontalAlignment = HorizontalAlignment.Stretch };
         Button reload = new() { Content = "Analyze / reload", HorizontalAlignment = HorizontalAlignment.Stretch };
         selection.Children.Add(all);
@@ -118,12 +138,47 @@ public sealed partial class MainWindow
             initialWidth: 1000, initialHeight: 780) { IsBusy = () => busy };
         ApplyActionRiskStyle(window.PrimaryButton, ToolActionRisk.Danger);
 
+        BuiltInAppFilter CurrentFilter() => filter.SelectedItem is ComboBoxItem { Tag: BuiltInAppFilter value }
+            ? value : BuiltInAppFilter.All;
+        string[] SelectedVisibleIds() => BuiltInAppsView.SelectedVisibleIds(BuiltInAppsCatalog.Targets, states,
+            CurrentFilter(), checks.Where(pair => pair.Value.IsChecked == true).Select(pair => pair.Key));
+        void ApplyFilter(bool scrollToTop = false)
+        {
+            if (updatingView) return;
+            updatingView = true;
+            try
+            {
+                var visible = new HashSet<string>(BuiltInAppsView.VisibleIds(BuiltInAppsCatalog.Targets, states, CurrentFilter()));
+                foreach (var pair in appRows)
+                {
+                    bool show = visible.Contains(pair.Key);
+                    pair.Value.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+                    if (!show) checks[pair.Key].IsChecked = false;
+                }
+                foreach (ComboBoxItem item in filter.Items)
+                {
+                    var option = (BuiltInAppFilter)item.Tag;
+                    int count = BuiltInAppsView.VisibleIds(BuiltInAppsCatalog.Targets, states, option).Length;
+                    item.Content = $"{BuiltInAppsView.Label(option)} ({count})";
+                }
+                summary.Text = inventoryKnown
+                    ? $"Showing {visible.Count}/{BuiltInAppsCatalog.Targets.Count} apps | Installed: {states.Values.Count(s => BuiltInAppsView.Includes(BuiltInAppFilter.Installed, s))} | Not installed: {states.Values.Count(s => s == BuiltInAppInstallState.NotInstalled)} | Not verified: {states.Values.Count(s => s == BuiltInAppInstallState.NotVerified)} | Selected: {SelectedVisibleIds().Length}"
+                    : busy ? "Checking installation status..." : "Installation status is not verified. Analyze / reload to refresh the list.";
+                empty.Visibility = visible.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+                empty.Text = inventoryKnown ? "No apps match this filter. Choose another filter or Analyze / reload."
+                    : "No verified results are available for this filter. Analyze / reload to retry.";
+                if (scrollToTop) scroll.ChangeView(null, 0, null, true);
+            }
+            finally { updatingView = false; }
+        }
         void UpdateControls()
         {
-            bool selected = checks.Values.Any(check => check.IsChecked == true);
+            bool selected = SelectedVisibleIds().Length > 0;
             window.PrimaryButton.IsEnabled = window.SecondaryButton.IsEnabled = !busy && inventoryKnown && selected;
             window.CloseButton.IsEnabled = !busy;
-            all.IsEnabled = none.IsEnabled = !busy && inventoryKnown;
+            all.IsEnabled = !busy && inventoryKnown && BuiltInAppsView.VisibleIds(BuiltInAppsCatalog.Targets, states, CurrentFilter()).Length > 0;
+            none.IsEnabled = !busy && inventoryKnown && selected;
+            filter.IsEnabled = !busy;
             reload.IsEnabled = !busy;
             foreach (var check in checks.Values) check.IsEnabled = !busy && inventoryKnown;
             foreach (var store in storeButtons) store.IsEnabled = !busy;
@@ -131,13 +186,23 @@ public sealed partial class MainWindow
         async Task ReadAsync()
         {
             inventoryKnown = false;
+            foreach (string id in states.Keys.ToArray())
+            {
+                states[id] = BuiltInAppInstallState.NotVerified;
+                checks[id].IsChecked = false;
+                labels[id].Text = "Not verified";
+                labels[id].Foreground = new SolidColorBrush(Color.FromArgb(255, 107, 114, 128));
+            }
+            ApplyFilter();
             var packages = await service.ReadAsync();
             int installed = 0;
             foreach (var target in BuiltInAppsCatalog.Targets)
             {
                 var matches = packages.Where(p => BuiltInAppsCatalog.Matches(target, p)).ToArray();
-                bool healthy = matches.Any(p => p.Healthy);
-                if (healthy) installed++;
+                var state = BuiltInAppsView.Classify(matches);
+                states[target.Id] = state;
+                bool healthy = state == BuiltInAppInstallState.Installed;
+                if (BuiltInAppsView.Includes(BuiltInAppFilter.Installed, state)) installed++;
                 string? inventoryError = matches.FirstOrDefault(p => p.InventoryError is not null)?.InventoryError;
                 labels[target.Id].Text = (inventoryError is not null ? "Not verified" + Environment.NewLine + inventoryError
                     : healthy ? "Installed" : matches.Length > 0 ? "Needs repair" : "Not installed") +
@@ -147,6 +212,7 @@ public sealed partial class MainWindow
             }
             inventoryKnown = true;
             status.Text = $"Installed: {installed}/{BuiltInAppsCatalog.Targets.Count}";
+            ApplyFilter();
         }
         async Task ReloadAsync()
         {
@@ -158,12 +224,12 @@ public sealed partial class MainWindow
                 status.Text = exception.Message;
                 foreach (var label in labels.Values) label.Text = "Not verified";
             }
-            finally { busy = false; UpdateControls(); }
+            finally { busy = false; ApplyFilter(); UpdateControls(); }
         }
         async Task RunAsync(bool restore)
         {
             if (busy || !inventoryKnown) return;
-            string[] ids = checks.Where(pair => pair.Value.IsChecked == true).Select(pair => pair.Key).ToArray();
+            string[] ids = SelectedVisibleIds();
             if (ids.Length == 0) return;
             busy = true; UpdateControls(); // Guard confirmation and task admission too.
             TaskActivityService.TaskActivityLease? lease = null;
@@ -241,16 +307,23 @@ public sealed partial class MainWindow
             {
                 lease?.Dispose();
                 busy = false;
+                ApplyFilter();
                 UpdateControls();
                 RefreshManagedTaskHeader();
             }
         }
         foreach (var check in checks.Values)
         {
-            check.Checked += (_, _) => UpdateControls();
-            check.Unchecked += (_, _) => UpdateControls();
+            check.Checked += (_, _) => { ApplyFilter(); UpdateControls(); };
+            check.Unchecked += (_, _) => { ApplyFilter(); UpdateControls(); };
         }
-        all.Click += (_, _) => { if (!busy) foreach (var check in checks.Values) check.IsChecked = true; };
+        filter.SelectionChanged += (_, _) => { if (!busy) { ApplyFilter(scrollToTop: true); UpdateControls(); } };
+        all.Click += (_, _) =>
+        {
+            if (!busy && inventoryKnown)
+                foreach (string id in BuiltInAppsView.VisibleIds(BuiltInAppsCatalog.Targets, states, CurrentFilter()))
+                    checks[id].IsChecked = true;
+        };
         none.Click += (_, _) => { if (!busy) foreach (var check in checks.Values) check.IsChecked = false; };
         reload.Click += async (_, _) => await ReloadAsync();
         window.PrimaryButton.Click += async (_, _) => await RunAsync(false);

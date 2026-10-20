@@ -23,7 +23,7 @@ foreach (string file in Directory.GetFiles(root, "*.cs"))
 var xaml = XDocument.Load(Path.Combine(root, "MainWindow.xaml"));
 Assert(!Read("MainWindow.xaml").Contains("LanguageComboBox"), "Language selector remains");
 var nav = xaml.Descendants().Where(e => e.Name.LocalName == "NavigationViewItem").ToArray();
-Assert(nav.Select(e => (string?)e.Attribute("Content")).SequenceEqual(new[] { "Home", "System Repair", "System Info", "Windows Security", "Advanced Windows Tweaks" }), "Sidebar contract drift");
+Assert(nav.Select(e => (string?)e.Attribute("Content")).SequenceEqual(new[] { "Home", "System Repair", "System Info", "Windows Security", "Advanced Windows Tweaks", "Network Settings Manager" }), "Sidebar contract drift");
 Assert(!Read("Installer/NaufalWindowsPowertoys.iss").Contains("ProgramInfoLanguage"), "Installer language selector remains");
 Assert(Read("Installer/Generate-ProgramInformation.ps1").Contains("EnglishUiText.cs"), "Installer does not share English copy");
 Assert(!string.IsNullOrWhiteSpace(EnglishUiText.AboutDescription) && !string.IsNullOrWhiteSpace(EnglishUiText.AboutPurpose), "About copy missing");

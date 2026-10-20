@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0-windows</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><AllowUnsafeBlocks>true</AllowUnsafeBlocks></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../NetworkSettingsModels.cs" Link="NetworkSettingsModels.cs" />
+    <Compile Include="../../NetworkEditorPolicy.cs" Link="NetworkEditorPolicy.cs" />
+    <Compile Include="../../WifiSsidCodec.cs" Link="WifiSsidCodec.cs" />
+    <Compile Include="../../WifiSsidNative.cs" Link="WifiSsidNative.cs" />
+    <Compile Include="../../WifiSsidService.cs" Link="WifiSsidService.cs" />
+    <Compile Include="../../WifiProfileInventory.cs" Link="WifiProfileInventory.cs" />
+    <Compile Include="../../NetworkAdditionalSettings.cs" Link="NetworkAdditionalSettings.cs" />
+    <Compile Include="../../NetworkSettingsService.cs" Link="NetworkSettingsService.cs" />
+    <Compile Include="../../NetworkSettingsScript.cs" Link="NetworkSettingsScript.cs" />
+    <Compile Include="../../NativeCommandRunner.cs" Link="NativeCommandRunner.cs" />
+    <Compile Include="../../AppDataPaths.cs" Link="AppDataPaths.cs" />
+    <Compile Include="../../WindowsPrivilegeService.cs" Link="WindowsPrivilegeService.cs" />
+  </ItemGroup>
+</Project>

@@ -1,6 +1,6 @@
 # Naufal Windows Utility — Changelog
 
-Development history from **30 August 2026** through **9 October 2026**.
+Development history from **30 August 2026** through **20 October 2026**.
 
 **Original history snapshot:** 12 September 2026, 00:39:41 WIB (Asia/Jakarta, UTC+07:00).
 Later development entries are appended below with their own dates.
@@ -21,6 +21,345 @@ mutation, complete visual validation, or full behavioral parity.
 Historical report filenames identify the records used when this history was
 assembled. Reports not included in this repository are shown as plain references,
 not download links; private backups and raw machine evidence are not published.
+
+## 20 October 2026 — v8.0.0.1 Network & Repair Preview
+
+- **Version:** application, executable/package manifests and installer advance to
+  8.0.0.1. Earlier releases are preserved; this release remains a development preview.
+- **Included:** accumulated Windows Update Fix service/cache recovery changes,
+  built-in app installation filters, analyzed ON/OFF tweak filters, direct
+  Network Settings with guarded per-SSID Wi-Fi and Ethernet DNS policy correction.
+- **Documentation:** updated README download links, current acceptance status,
+  release notes and this changelog. Search-friendly Windows debloat/repair/network
+  wording describes actual functions, without guaranteed speed or safety claims.
+- **Verification:** 4,984 backend regression assertions, 276 network workflow
+  assertions (with separate SSID/policy fixtures), 375 localization checks and
+  163 GPU metadata/service assertions passed before packaging. No live host
+  Windows repair, network edit or driver installation was performed in this run.
+- **Limits:** the 15 October guest log proves six local Windows Update repair
+  stages and zero warnings, not a completed formerly stuck online download.
+  RST/ASM2362/RTL9210 remain fixture-tested, not physically verified. Installer
+  signing and a complete installation/upgrade/uninstall matrix remain outstanding.
+
+## 15 October 2026 — Network & Repair verification (local build)
+
+- **Live verification:** reviewed owner-operated VMware Windows 11 build 26300
+  repair log: Windows Update Fix completed all six stages with zero warnings;
+  BITS/wuauserv/cryptsvc Running and three preserved cache backups verified.
+  Recovery of a previously stuck online download is not established by this log.
+- **Regression:** added missing/unknown service, spontaneous restart and disabled
+  final startup-state cases. Focused runner passes 29 simulated repair assertions
+  and 89 vendor SMART assertions; it performs no live Windows repair/device probe.
+- **Hardware limits:** no supported Intel RST, ASM2362 or RTL9210 controller found
+  in the development inventory. Physical validation remains unavailable; this
+  preview does not upgrade synthetic coverage to hardware certification.
+- **Network evidence:** retained per-SSID DNS passed post-reboot checks (12/12
+  bound DNS/HTTPS and 8/8 resolver queries). Owner's VMware Ethernet DNS v4
+  Apply/rollback also passed. Other network acceptance items remain scoped.
+- **Packaging:** existing 15 October Native AOT installer; unsigned. Owner
+  installed/launched it in the VM. Installation/upgrade/uninstall coverage is not
+  complete. README and release notes now expose verification boundaries.
+- **Source publication:** includes accumulated direct Network Settings and
+  installed/state filters. Python bytecode/cache folders are excluded.
+
+## 14 October 2026 — Ethernet DNS policy false-positive (local development)
+
+- **Diagnosed:** the VMware DNS-mode audit was stopped before network mutation
+  by the presence of `NC_PersonalFirewallConfig=0` alone. Subsequent guest
+  read-back still showed the original DHCP address, gateway and automatic DNS.
+- **Fixed:** Ethernet DNS-only Apply/Restore can recognize the single reviewed
+  machine-scoped firewall policy (DWORD 0 or 1) as unrelated to DNS. The policy
+  is not modified. Domain membership, DNS policies, user network policies,
+  unknown values/subkeys/types, IP edits and category edits retain their gates.
+- **Verification:** 39 mocked Ethernet policy cases, the existing 276 network
+  policy/workflow assertions and a DNS command-line-size regression passed.
+  No host network changes were made. Guest live Apply/rollback with this fix
+  remains pending; the earlier failed run is not counted as a successful test.
+- **Test tooling:** the separate VMware audit package now handles null successful
+  read-error markers and allows read-only inspection of rejected baselines.
+
+## 13 October 2026 — RA settling and per-SSID IPv6 DNS verification (local development)
+
+- **Verified:** manual IPv6 SSID round trip showed two RA privacy addresses
+  briefly after switching; none remained at 10 or 30 seconds. Return to the
+  original SSID, Wi-Fi-bound HTTPS and exact automatic-mode rollback passed.
+  No forced RA deletion, global privacy change or reboot was performed.
+- **Changed:** the opt-in harness observes settling and refuses a pass if old
+  RA addresses persist, even when external connectivity from them fails.
+- **Diagnosed, not repaired:** the router IPv6 DNS capture showed six outbound
+  queries and two replies, four timeouts, and no reported capture drops.
+- **Verified alternative:** explicitly authorized temporary Cloudflare IPv6
+  DNS-only Save/reconnect passed eight Wi-Fi-bound queries; eight direct preflight
+  queries also passed. Exact original DNS/SSID metadata and inspected global and
+  other-profile settings were restored. No alternative resolver was retained by
+  that temporary test. With subsequent explicit owner approval, a separate
+  DNS-only operation retained the alternative for the selected SSID, preserving
+  the original recovery snapshot. Eight DNS queries and a final 12/12 combined
+  Wi-Fi-bound DNS/HTTPS check passed. No other SSID/global settings were changed;
+  the application does not automatically select a DNS provider for other users.
+- **Added:** opt-in DNS-only audit and reproducible bound DNS traffic probes.
+  Default simulated regression suite remains 276 passing assertions.
+  Immediate-transition isolation, repaired router DNS and other hardware are not
+  certified. These are local changes, not a published release.
+
+### Acceptance follow-up
+
+- Corrected stale UI text claiming Wi-Fi had never been hardware-tested; retained
+  explicit build limits and the separate Ethernet live-validation gap.
+- Added a read-only retained-DNS post-boot checker. Preparation records current
+  configuration and boot identity; Resume requires a distinct later boot and
+  verified bound DNS/HTTPS. No reboot, reconnect, or network writes. Same-boot
+  rejection passed on PowerShell 5.1 and 7; actual post-boot Resume is pending.
+- Native UI: 45,930 assertions / 276 layout cases / 8 flyouts passed. Default
+  backend regression: 4,978 assertions passed without Windows-setting changes.
+- Tracked VM encryption access, router coordination, and missing test hardware
+  separately in `docs/network-acceptance-status.md`; none is claimed resolved by
+  fixture success or by removing compatibility guards.
+
+## 12 October 2026 — Manual IPv6 two-reboot audit completed (local development)
+
+- **Verified:** second distinct boot at 20:58:20 WIB retained exact original SSID
+  metadata, automatic IPv6 DHCP/RA runtime and inspected global/other-profile
+  baseline. IPv6 HTTPS bound to Wi-Fi passed with valid TLS and HTTP 200.
+- **Completed:** checkpoint Complete, exit 0, at 21:00:11 WIB. Both manual IPv6
+  persistence after the first boot and exact automatic recovery after the second
+  are verified on this host. Final Resume did not apply settings or reboot.
+- **Limitations retained:** two RA privacy addresses remained listed during the
+  earlier hotspot isolation test; all-address isolation is not certified. Earlier
+  router IPv6 DNS timeouts remain a separate incomplete test, not cleared by HTTPS.
+
+## 12 October 2026 — First manual IPv6 reboot verified (local development)
+
+- **Verified:** distinct Windows boot at 20:48 WIB retained exact manual IPv6,
+  prefix, gateway, DNS and SSID metadata. HTTPS bound to the Wi-Fi interface and
+  manual source address passed with certificate validation and HTTP 200.
+- **Recovered:** exact original metadata, inspected global/other-profile state
+  and automatic IPv6 runtime restored after reconnect. Resume exited 0 with
+  `AwaitRestoreBoot`, no test failure. No reboot was initiated by the harness.
+- **Pending:** a second manual reboot is required to verify recovery persistence;
+  the overall two-boot audit is not complete yet.
+
+## 12 October 2026 — IPv6 SSID isolation and reboot preparation (local development)
+
+- **Added:** optional authorized second-SSID test and Prepare/Resume/Restore
+  stages for the IPv6 harness. Checkpoints preserve the original snapshot and
+  boot identity, block same-boot/finalized resumes, and retain test failures even
+  after recovery. No startup task or automatic reboot. Launcher optional GUID
+  defaults explicitly to empty, allowing Resume/Restore without new settings.
+- **Verified:** requested manual IPv6 absent on the hotspot, effective again on
+  returning to the original SSID, with Wi-Fi-bound HTTPS before/after switching.
+  Other saved metadata and the inspected automatic-state baseline matched.
+- **Limitations:** two RA privacy addresses remained listed on the hotspot;
+  this is not complete IPv6 address isolation. DHCPv6 may remain enabled alongside
+  the manual address on return. The corrected test still requires exact
+  Manual/Preferred address, prefix, gateway, DNS and metadata, not a DHCP flag.
+- **Checks:** 276 regression assertions pass. Same-boot Resume rejected before
+  mutation. Explicit cancellation restored the temporary earlier checkpoint.
+  Final preparation exited 0 with manual IPv6 retained in `AwaitTestBoot`.
+  Both reboot stages remain pending; a prepared checkpoint is not a reboot pass.
+
+## 12 October 2026 — Manual IPv6 acceptance and partial post-boot traffic (local development)
+
+- **Added:** opt-in manual IPv6 audit with exact currently assigned address and
+  user-approved temporary reuse, matching SSID/MAC, Ethernet fallback, durable
+  recovery, reconnect, runtime checks and Wi-Fi-bound TLS/HTTPS validation.
+- **Verified on one host:** manual IPv6 address/prefix/gateway/DNS, reconnect and
+  HTTPS passed. Exact original metadata/global/other-profile state and automatic
+  DHCP/RA were restored; HTTPS passed after recovery. Final audit exit 0.
+- **Test correction:** Windows retains router discovery with per-SSID static
+  IPv6 while disabling DHCPv6. The first audit's RA-disabled expectation failed
+  and recovery succeeded; the corrected harness still requires the exact
+  Manual/Preferred address. No production/global RA change. 263 network
+  regression assertions pass.
+- **Partial result:** automatic-mode post-boot traffic passed four IPv4 DNS and
+  four IPv4/IPv6 HTTPS checks; three of four router IPv6 DNS queries timed out
+  before manual IPv6 mutation. Overall 9/12, not a complete traffic pass.
+- **Not covered:** manual IPv6 reboot, manual IPv6 cross-SSID isolation, permanent
+  static allocation, or universal hardware support. No reboot or release publish.
+
+## 12 October 2026 — Static IPv4 reboot acceptance completed (local development)
+
+- **Verified:** saved manual IPv4/prefix/gateway/DNS survived the first boot.
+  Exact original metadata and DHCP runtime recovery passed after the second
+  distinct boot. Inspected global settings and other saved profiles matched
+  the original baseline. Checkpoint Complete, exit 0, at 19:39:35 WIB.
+- **Scope:** the final Resume did not reapply settings or reboot the PC. Manual
+  IPv6 and post-boot traffic remain untested; prior interface-bound traffic
+  evidence is separate. README and feature guides now reflect this coverage.
+
+## 12 October 2026 — Boot audit precision guard (local development)
+
+- **Fixed test guard:** compare parsed Windows boot timestamps instead of raw
+  strings. Sub-second precision drift, equivalent timezone representations,
+  invalid or earlier timestamps cannot certify a new boot. Six regression cases
+  cover these conditions; the suite now has 254 network assertions.
+- **Hardware status at this earlier checkpoint:** the first static-IPv4 boot stage passed and original
+  metadata was restored. DHCP is active, but the follow-up still reports the
+  previous Windows boot; Kernel-General startup evidence agrees. The checkpoint
+  remains AwaitRestoreBoot. Post-boot rollback is not yet certified, and no
+  network settings or checkpoint phase were changed for this correction.
+
+## 11 October 2026 — Network Settings Manager (local development preview)
+
+- **Connected-SSID Save implemented:** Added a separate native Windows metadata
+  provider for IPv4/IPv6, gateway and preferred/alternate DNS on the connected
+  Wi-Fi SSID. The main editor now enables Wi-Fi Save when supported; global
+  adapter writes remain blocked. No local profile/draft workflow is reintroduced.
+- **Guarded private ABI:** Exact reviewed x64 WLAN DLL fingerprints are required.
+  Unsupported builds remain read-only with a Windows Settings handoff.
+  SSID/profile binding, stale-data checks, local policy/admin checks, durable
+  original-metadata snapshots, per-family read-back and guarded rollback are
+  implemented. Custom/encrypted DNS options are not silently downgraded.
+- **SSID tests:** 75 codec/identity/persistence/recovery assertions (including a
+  nine-case pure PowerShell policy check) pass using
+  simulated stores; 32 native buffer checks pass without profile writes.
+  Native UI suite: 45,927 assertions, 276 layout cases, 8 flyouts.
+  Manual IPv6 and static-address reboot remain untested; this is experimental,
+  not fully certified.
+- **Bounded live host test:** IPv4 DNS was saved to the connected SSID, read back,
+  and restored to the exact originally absent metadata. Other saved SSID metadata,
+  IPv6 metadata and inspected adapter-global values remained unchanged. No
+  reconnect/reboot or global adapter setter was used. Private raw evidence is
+  retained locally; this does not prove effective DNS use after reconnect.
+- **Subsequent reconnect/two-SSID live pass:** IPv4 DNS and IPv6 automatic metadata
+  persisted across reconnect and switching. Active DNS/DHCP/IPv6 RA configuration
+  was checked, the other SSID regained its own DNS/default gateway, and original
+  metadata was restored and rechecked after reconnect. Inspected adapter-global
+  values and other saved profiles remained unchanged. Traffic reachability,
+  manual addressing and reboot behavior are not covered by this result.
+- **Two-reboot live acceptance passed:** Added explicit Prepare/Resume with durable
+  recovery checkpoint and boot-identity guards for two manual restarts. The first
+  verified saved IPv4 DNS/IPv6 automatic metadata and active configuration, then
+  restored original metadata. The second verified post-boot rollback, original
+  automatic configuration and unchanged inspected global/other-profile state.
+  Checkpoint Complete, exit 0, on 11 October at 20:02:51 WIB. Manual addressing
+  and traffic reachability remain untested. The harness never reboots or
+  creates startup tasks; absent USB NICs retain their original baseline IDs.
+- **Preflight correction:** A valid legacy firewall-only policy no longer causes
+  a false IP/DNS block. Machine/user network and DNS policy checks remain; unknown
+  controls fail closed. No Windows policy values were modified.
+- **Manual IPv4 acceptance:** a user-reserved IPv4/subnet/gateway passed per-SSID
+  Save, reconnect, two-SSID isolation, Wi-Fi-bound HTTPS and exact metadata
+  rollback to DHCP. IPv6 metadata and other saved profiles were untouched.
+  Windows projects active static addressing into the Wi-Fi EnableDHCP flag;
+  the flag returned to baseline on the other SSID and after rollback. Earlier
+  conservative failed audits and their successful recovery evidence are retained.
+  Added an explicit opt-in harness and four narrow projection-guard regressions.
+- **Automatic-mode Wi-Fi traffic:** 8 bound DNS queries and 4 bound HTTPS requests
+  passed across IPv4/IPv6 using two public endpoints, without settings changes.
+  Manual-run HTTPS uses system hostname resolution; manual-mode bound DNS and
+  reboot with static addressing are not claimed as tested.
+- **Static reboot preparation:** extended the opt-in boot harness with reserved
+  IPv4/MAC/prefix/gateway checks, durable Preparing/AwaitTestBoot stages and
+  mode-aware post-boot/rollback checks. Six new synthetic assertions reject
+  DHCP-only matches, duplicate addresses, incorrect prefixes/gateways and read
+  errors. Preparing a checkpoint is not a successful hardware reboot test.
+- **Collector compatibility:** Treat absent/null read-error markers as no reported
+  error instead of dereferencing them in editor projection, verification or
+  snapshot validation. Actual read errors still block the affected operation.
+- **Direct editor:** Replaced the local profile/draft library and activation workflow
+  with active-adapter selection, current IPv4/IPv6 values, subnet/prefix, gateway,
+  preferred/alternate DNS and **Save to Windows** on the main page.
+- **Changes only:** Loading or refreshing current values creates no pending writes.
+  Address and DNS edits are independent; automatic values remain readable.
+  Disconnected/unknown adapter types are excluded from the selector.
+- **Removed from UI:** Local profile names/groups, save/load/delete, SSID drafts and
+  one-shot automatic activation. Existing library files are not deleted or loaded.
+- **Recovery retained:** Ethernet Save uses confirmation, adapter GUID resolution,
+  administrator/policy checks, pre-write snapshots, read-back and failure recovery.
+- **Wi-Fi isolation:** Adapter-wide Apply, restore, WINS and route writes remain
+  blocked. Supported SSID metadata saving uses its own provider and snapshots.
+- **Additional panels retained:** Separate confirmed adapter/Wi-Fi, printer,
+  computer/workgroup, drive, WINS/route, hosts and local program/script actions.
+  SMTP is a TCP connection check, not mail delivery. These are not included in
+  IP/DNS snapshot rollback and are no longer saved in local profiles.
+- **Validation:** 248 synthetic network assertions and 45,927 native UI assertions
+  (276 layout cases, 8 flyouts) passed, in addition to the bounded DNS test above.
+  Reconnect/two-SSID and two-reboot tests passed for the bounded modes above;
+  broader real Apply/rollback coverage remains outstanding.
+- **Documentation:** Updated the README and feature guide. Existing filter and
+  Windows Update Fix changes are preserved. No GitHub publication in this task.
+
+## 10–11 October 2026 — Shared tweak ON/OFF filters (local development)
+
+- **Added:** Show options filter in the shared dialog used by Essential Windows
+  Tweaks, Gaming Tweaks and Advanced Windows Tweaks & De-Bloat: All options, ON,
+  OFF, Partially applied, Unavailable and Not verified, with counts and empty
+  result feedback. Catalog order and the underlying tweak backends are retained.
+- **Accuracy:** Filters use analyzed/read-back state. Mixed configurations are
+  separate from OFF, and missing, failed or stale scans remain Not verified.
+  Action-only cards are shown under All options, never assigned a toggle state.
+- **Selection safety:** Select visible, tier selection, Apply and Restore scopes
+  intersect the active filter. Hidden/stale selections are cleared. Restore
+  visible defaults retains confirmation/default semantics within that scope.
+  Filter changes are disabled throughout analysis, confirmation and execution;
+  switching filters alone never changes Windows settings.
+- **Scope:** Existing Built-in Apps filters and Windows Update Fix changes are
+  retained. This is local development, not a GitHub release announcement.
+- **Verification:** 4,978 backend regression assertions (130 new filter/policy
+  and wiring checks), 351 English UI checks, 92 routing, 27 simplified-interface
+  and 33 identity checks pass. No live Windows tweaks were applied. Native dialog
+  clicks and layout have not been visually certified for this change.
+- **Packaging:** Fresh Native AOT / Inno Setup build completed on 11 October
+  without reported compiler warnings/errors. Installer v8.0.0.0: 38,700,543 bytes;
+  SHA-256: `7EB9FFBFC62887C605165A1DBB6673B4073A489A8FC9AA82A466B5CD3E9C5EFC`.
+
+## 10 October 2026 — Built-in Apps installation filters (local development)
+
+- **Added:** Show apps selector with All apps, Installed, Not installed and Not
+  verified views, counts, empty-result feedback and alphabetical ordering.
+  Registered apps needing repair remain in Installed; partial/deferred/error
+  inventory is never counted as confirmed absence.
+- **Selection safety:** Select visible operates on the filtered set. Hidden
+  selections are cleared when switching filters, and action dispatch intersects
+  selection with visible approved catalog IDs. Reload clears stale selections
+  and states; the active filter is reapplied after removal/restoration. Filters
+  cannot change during confirmation or execution.
+- **Scope:** Existing current-user AppX, OneDrive scope, recommendations,
+  confirmations and uninstall/restore backends remain unchanged. The filter
+  itself makes no network or system-changing calls. Prior Windows Update Fix
+  changes are retained in the new installer. No GitHub publication is implied.
+- **Tests:** Added 39 isolated classification/filter/selection and source-wiring
+  assertions, including unhealthy packages, merged variants, deferred Copilot,
+  OneDrive, unknown inventory, empty results and refreshed selection. These do
+  not uninstall or restore any real apps.
+- **Results:** 4,848 backend assertions, 349 English UI checks, 92 routing,
+  27 simplified-interface and 33 identity checks pass. A read-only production
+  inventory probe verifies all catalog entries belong to exactly one status
+  group. Native dialog clicks/layout have not been visually certified in this
+  change. Native AOT / Inno Setup build succeeds without reported compiler
+  warnings/errors. Installer v8.0.0.0: 38,711,502 bytes; SHA-256:
+  `FFC7DB8E5C4365D0A737E7AFC4503D3D2CB1155D3C301C1BB26E126250D08CDF`.
+
+## 10 October 2026 — Windows Update Fix (local development)
+
+- **Fixed:** Cache reset no longer requires stopping or reconfiguring protected
+  UsoSvc/DoSvc coordinators. The repair uses BITS, wuauserv and cryptsvc, rechecks
+  their stopped state before each rename, and retains unique cache backups.
+- **Fixed:** Unreadable/unrepairable startup configuration aborts before the
+  cache reset; rejected service configuration is not bypassed by direct registry
+  writes. Failed restarts or final read-back now fail the operation rather than
+  reporting a successful repair with warnings.
+- **Diagnostics/recovery:** Native command exit codes, timeout status and output
+  are included in the report. Rejected service commands stop polling promptly
+  unless a transition is pending. Spaced native pending-state names are
+  normalized. Failure recovery only starts services that this attempt tried to
+  stop from a non-stopped state, and still runs after cancellation.
+- **UI/documentation:** Confirmation explains re-download/update-history impact,
+  retained backups and avoiding active installation. Completion directs users
+  back to Windows Update without claiming the online download was tested.
+- **Verification scope:** Complete workflow tests use fake machine operations
+  and disposable cache folders, including denied configuration/stop/start,
+  pending-state races, locked cache, failed read-back and cancellation. No host
+  update service or real Windows cache is changed by these tests. A live repair
+  of the reported stuck download remains unverified; this entry is not a claim
+  of a published GitHub release.
+- **Results:** 4,809 backend regression assertions (including 23 new workflow
+  assertions), 347 English UI checks, 92 routing checks, 33 identity checks and
+  27 simplified-interface checks pass. Fresh Native AOT / Inno Setup x64 build
+  succeeds; no compiler warnings/errors were reported. Installer v8.0.0.0:
+  38,686,893 bytes; SHA-256:
+  `84661109433FE5850BB722A85504DA3CB7CF907CCE045FBDBDE8D00151A3F0F5`.
 
 ## 9 October 2026 — Intel Catalog Fix Preview
 

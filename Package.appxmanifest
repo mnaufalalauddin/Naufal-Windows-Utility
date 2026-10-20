@@ -11,7 +11,7 @@
   <Identity
     Name="29db7b07-6375-47ec-a284-45a5722852bc"
     Publisher="CN=Naufal"
-    Version="8.0.0.0" />
+    Version="8.0.0.1" />
 
   <mp:PhoneIdentity PhoneProductId="29db7b07-6375-47ec-a284-45a5722852bc" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 

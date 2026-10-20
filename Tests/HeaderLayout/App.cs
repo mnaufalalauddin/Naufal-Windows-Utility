@@ -41,6 +41,7 @@ public partial class App : Application
 
 internal static class AppDataPaths
 {
+    internal static string LocalRoot => SettingsDirectory;
     // Never change the user's actual app preferences during a scale matrix.
     internal static string SettingsDirectory { get; } = Path.Combine(AppContext.BaseDirectory,
         "test-preferences", Guid.NewGuid().ToString("N"));

@@ -28,6 +28,7 @@ internal static class MaintenanceRepairTests
         }
         assert((await StoreResetStage.RunAsync(package, _ => Task.FromException(new InvalidOperationException("package in use")))).Contains("package in use"), "Known terminal reset failure stays an explicit warning");
         await VerifyRepairReadBackAsync(assert);
+        await WindowsUpdateWorkflowTests.RunAsync(assert);
 
         // Real filesystem operations are confined to a unique disposable test fixture.
         string root = Path.Combine(Path.GetTempPath(), "wpt-cache-regression-" + Guid.NewGuid().ToString("N"));

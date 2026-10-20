@@ -29,6 +29,19 @@
     <Page Include="..\..\MainWindow.xaml" Link="MainWindow.xaml" />
     <Compile Include="..\..\MainWindow.HeaderLayout.cs" Link="MainWindow.HeaderLayout.cs" />
     <Compile Include="..\..\MainWindow.Navigation.cs" Link="MainWindow.Navigation.cs" />
+    <Compile Include="..\..\NetworkSettingsView.cs" Link="NetworkSettingsView.cs" />
+    <Compile Include="..\..\NetworkAdditionalView.cs" Link="NetworkAdditionalView.cs" />
+    <Compile Include="..\..\NetworkSettingsModels.cs" Link="NetworkSettingsModels.cs" />
+    <Compile Include="..\..\NetworkEditorPolicy.cs" Link="NetworkEditorPolicy.cs" />
+    <Compile Include="..\..\WifiSsidCodec.cs" Link="WifiSsidCodec.cs" />
+    <Compile Include="..\..\WifiSsidNative.cs" Link="WifiSsidNative.cs" />
+    <Compile Include="..\..\WifiSsidService.cs" Link="WifiSsidService.cs" />
+    <Compile Include="..\..\WifiProfileInventory.cs" Link="WifiProfileInventory.cs" />
+    <Compile Include="..\..\NetworkSettingsService.cs" Link="NetworkSettingsService.cs" />
+    <Compile Include="..\..\NetworkSettingsScript.cs" Link="NetworkSettingsScript.cs" />
+    <Compile Include="..\..\NetworkAdditionalSettings.cs" Link="NetworkAdditionalSettings.cs" />
+    <Compile Include="..\..\NativeCommandRunner.cs" Link="NativeCommandRunner.cs" />
+    <Compile Include="..\..\WindowsPrivilegeService.cs" Link="WindowsPrivilegeService.cs" />
     <Compile Include="..\..\HeaderLayoutPolicy.cs" Link="HeaderLayoutPolicy.cs" />
     <Compile Include="..\..\UiDisplaySettings.cs" Link="UiDisplaySettings.cs" />
     <Compile Include="..\..\CatalogDisplayNames.cs" Link="CatalogDisplayNames.cs" />

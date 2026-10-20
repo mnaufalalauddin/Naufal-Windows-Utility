@@ -140,6 +140,7 @@ internal static class BuiltInAppsTests
         check(ui.Contains("new CatalogProgressWindow(window, verb") && ui.Contains("progressWindow.UnavailableItem"), "separate per-app progress and neutral absence");
         check(ui.Contains("IsChecked = false") && ui.Contains("CloseOnPrimary = true") && ui.IndexOf("confirmWindow.ShowAsync()") < ui.IndexOf("BuiltInAppsRemoval.RunAsync"), "no preselection / confirm before mutation");
         await CheckOneDriveAsync(check, targets, service, ui, root);
+        BuiltInAppsViewTests.Run(check);
     }
 
     private static BuiltInAppPackage Package(BuiltInAppTarget target, string? family = null)

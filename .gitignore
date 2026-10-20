@@ -28,6 +28,8 @@ packages/
 *.msixbundle
 *.nupkg
 *.snupkg
+__pycache__/
+*.pyc
 *.zip
 *.7z
 

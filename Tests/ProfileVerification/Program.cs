@@ -2,6 +2,23 @@ using Naufal_Windows_Tech_s_Powertoys;
 
 try
 {
+if (args.Contains("--repair-storage-regression"))
+{
+    int repair = 0, storage = 0;
+    await WindowsUpdateWorkflowTests.RunAsync((value, name) =>
+    {
+        if (!value) throw new Exception("FAILED: " + name);
+        repair++;
+    });
+    VendorSmartTests.Run((value, name) =>
+    {
+        if (!value) throw new Exception("FAILED: " + name);
+        storage++;
+    });
+    Console.WriteLine($"PASS: {repair} Windows Update workflow assertions; {storage} vendor SMART assertions.");
+    Console.WriteLine("Simulated services, disposable cache folders and synthetic device packets only. No live Windows repair, download recovery or physical controller validation claimed.");
+    return;
+}
 if (args.Contains("--security-read-probe"))
 {
     var snapshot = await Task.Run(() => new SecurityMitigationNative().Read()).WaitAsync(TimeSpan.FromSeconds(30));
@@ -164,6 +181,7 @@ StartupLanguageTests.Run(Assert);
     AppDataPathTests.Run(Assert);
 await WmiPrerequisiteTests.RunAsync(Assert);
 await BuiltInAppsTests.RunAsync(Assert);
+CatalogStateFilterTests.Run(Assert);
 CatalogExpansionTests.Run(Assert);
 await CopilotConsentTests.RunAsync(Assert);
 await OneDriveExecutionTests.RunAsync(Assert);

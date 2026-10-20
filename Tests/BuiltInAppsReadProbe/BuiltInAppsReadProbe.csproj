@@ -8,6 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\..\BuiltInAppsCatalog.cs" Link="BuiltInAppsCatalog.cs" />
+    <Compile Include="..\..\BuiltInAppsView.cs" Link="BuiltInAppsView.cs" />
     <Compile Include="..\..\BuiltInAppsExpansion.cs" Link="BuiltInAppsExpansion.cs" />
     <Compile Include="..\..\CopilotStorePolicy.cs" Link="CopilotStorePolicy.cs" />
     <Compile Include="..\..\CopilotSourceConsent.cs" Link="CopilotSourceConsent.cs" />

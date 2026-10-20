@@ -140,6 +140,7 @@
                 <NavigationViewItem Content="System Info" Tag="Info" Icon="Document"/>
                 <NavigationViewItem Content="Windows Security" Tag="Security" Icon="Permissions"/>
                 <NavigationViewItem Content="Advanced Windows Tweaks" Tag="Advanced" Icon="Setting"/>
+                <NavigationViewItem Content="Network Settings Manager" Tag="Network" Icon="Globe"/>
             </NavigationView.MenuItems>
             <!-- The full-width Grid owns centering of the capped content. A capped
                  direct ScrollViewer child is offset by its narrow DesiredSize but
@@ -255,6 +256,7 @@
                                         Click="ExplorerFixButton_Click"
                                         Style="{StaticResource ToolButtonStyle}"/>
 </StackPanel>
+<ContentControl x:Name="NetworkPage" Visibility="Collapsed" HorizontalContentAlignment="Stretch"/>
 <StackPanel x:Name="InfoPage" Visibility="Collapsed" Spacing="16" MaxWidth="920" HorizontalAlignment="Left"><TextBlock Text="System Info" FontSize="28" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="Inspect disks, system reports, and activation status without changing Windows." TextWrapping="Wrap"/>
 <Button x:Name="DiskInfoButton" Content="Disk Info"
                                         Click="DiskInfoButton_Click"

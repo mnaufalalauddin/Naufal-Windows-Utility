@@ -1196,7 +1196,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
         {
             if (!await ShowConfirmationWindowAsync(
                     "Windows Update Fix",
-                    "Repair Windows Update service startup settings and reset the SoftwareDistribution and catroot2 caches? Administrator rights are required.",
+                    "Repair BITS, Windows Update and Cryptographic Services, then reset the download, update database and catroot2 caches? Downloads may restart from the beginning and the local update-history view may be rebuilt; installed updates are not uninstalled. Existing caches are renamed to unique backups, not deleted. Close Windows Update Settings first and do not run this while updates are installing. Administrator rights are required.",
                     "Run Repair"))
             {
                 return;
@@ -1219,7 +1219,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
             MaintenanceProgressWindow progressWindow = new(
                 this,
                 "Windows Update Fix",
-                "Windows Update services, persistent locks and update caches will be repaired and verified.",
+                "Core update services and preserved cache backups will be checked. Download completion is not tested; service permissions and protected coordinators are not overridden.",
                 new[]
                 {
                     "Repair update-service prerequisites",
@@ -2110,6 +2110,8 @@ namespace Naufal_Windows_Tech_s_Powertoys
             Dictionary<string, ToggleSwitch> toggles = new(StringComparer.OrdinalIgnoreCase);
             Dictionary<string, TextBlock> stateTexts = new(StringComparer.OrdinalIgnoreCase);
             Dictionary<string, Grid> toggleRows = new(StringComparer.OrdinalIgnoreCase);
+            Dictionary<string, Border> toggleCards = new(StringComparer.OrdinalIgnoreCase);
+            List<Border> actionOnlyCards = new();
             Dictionary<string, Func<Task>> bulkActionRefresh = new(StringComparer.OrdinalIgnoreCase);
             Action? refreshBulkSummary = null;
             bool synchronizingControls = false;
@@ -2144,6 +2146,25 @@ namespace Naufal_Windows_Tech_s_Powertoys
             }
 
             Grid contentGrid = new();
+            contentGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            StackPanel filterHeader = new() { Spacing = 4, Margin = new Thickness(4, 0, 4, 8) };
+            ComboBox stateFilter = new()
+            {
+                Header = "Show options", HorizontalAlignment = HorizontalAlignment.Stretch,
+                MaxWidth = 480, IsEnabled = false
+            };
+            foreach (CatalogStateView view in Enum.GetValues<CatalogStateView>())
+                stateFilter.Items.Add(new ComboBoxItem { Content = CatalogStateFilter.Label(view), Tag = view });
+            stateFilter.SelectedIndex = 0;
+            filterHeader.Children.Add(stateFilter);
+            TextBlock filterSummary = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
+            filterHeader.Children.Add(filterSummary);
+            filterHeader.Children.Add(new TextBlock
+            {
+                Text = "Filters use the analyzed state, not a pending choice. Bulk selection/restore affects visible options only; hidden selections are cleared. Action-only tools appear under All options.",
+                TextWrapping = TextWrapping.Wrap, FontSize = 12
+            });
+            contentGrid.Children.Add(filterHeader);
             // Match the reference layout: the catalog rows scroll in the
             // remaining space while the bulk toolbar stays anchored below the
             // list and above the progress/status footer.
@@ -2262,6 +2283,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 stateTexts[definition.Id] = actual;
                 toggleRows[definition.Id] = row;
                 card.Child = row;
+                toggleCards[definition.Id] = card;
                 rows.Children.Add(card);
             }
 
@@ -2548,6 +2570,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
                         Grid.SetColumn(actionButtons, 1);
                         row.Children.Add(actionButtons);
                         card.Child = row;
+                        actionOnlyCards.Add(card);
                         rows.Children.Add(card);
                     }
                 }
@@ -2562,7 +2585,14 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
                 HorizontalScrollMode = ScrollMode.Disabled
             };
-            Grid.SetRow(catalogRowsViewer, 0);
+            TextBlock emptyFilter = new()
+            {
+                Text = "No options match this filter. Choose another filter or Analyze / reload.",
+                TextWrapping = TextWrapping.Wrap, Margin = new Thickness(4, 8, 4, 8),
+                Visibility = Visibility.Collapsed
+            };
+            rows.Children.Add(emptyFilter);
+            Grid.SetRow(catalogRowsViewer, 1);
             contentGrid.Children.Add(catalogRowsViewer);
 
             TextBlock selectionSummary = new()
@@ -2591,7 +2621,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
             toolbar.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
             Button selectAllButton = CreateCatalogToolbarButton(
-                "Select all",
+                "Select visible",
                 Color.FromArgb(255, 37, 99, 235));
             Button selectSafeButton = CreateCatalogToolbarButton(
                 UiTextKeys.SelectSafe,
@@ -2609,7 +2639,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 "Restore advanced",
                 Color.FromArgb(255, 180, 83, 9));
             Button restoreAllButton = CreateCatalogToolbarButton(
-                "Restore all defaults",
+                "Restore visible defaults",
                 Color.FromArgb(255, 21, 128, 61));
             Button analyzeButton = CreateCatalogToolbarButton(
                 UiTextKeys.AnalyzeReload,
@@ -2636,7 +2666,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
             Grid.SetRow(selectionSummary, 2);
             Grid.SetColumnSpan(selectionSummary, 4);
             toolbar.Children.Add(selectionSummary);
-            Grid.SetRow(toolbar, 1);
+            Grid.SetRow(toolbar, 2);
             contentGrid.Children.Add(toolbar);
 
             TextBlock statusText = new()
@@ -2661,7 +2691,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
             footer.Children.Add(availabilityBadge.View);
             footer.Children.Add(statusText);
             footer.Children.Add(highImpactAcknowledgement);
-            Grid.SetRow(footer, 2);
+            Grid.SetRow(footer, 3);
             contentGrid.Children.Add(footer);
 
             ToolWindow window = new(
@@ -2681,11 +2711,48 @@ namespace Naufal_Windows_Tech_s_Powertoys
             bool statesLoaded = false;
             bool applyInProgress = false;
             bool stateLoadInProgress = false;
+            bool updatingStateFilter = false;
             long loadedAtEpoch = -1;
+            CatalogStateView CurrentStateFilter() => stateFilter.SelectedItem is ComboBoxItem { Tag: CatalogStateView view }
+                ? view : CatalogStateView.All;
+            bool IsVisibleOption(ToolToggleDefinition definition) => CatalogStateFilter.Includes(
+                CurrentStateFilter(), currentStates.TryGetValue(definition.Id, out var state) ? state : null, statesLoaded);
+            void UpdateStateFilter(bool scrollToTop = false)
+            {
+                if (updatingStateFilter || window.IsClosed) return;
+                updatingStateFilter = true;
+                try
+                {
+                    int visible = 0;
+                    foreach (var definition in definitions)
+                    {
+                        bool show = IsVisibleOption(definition);
+                        toggleCards[definition.Id].Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+                        if (show) visible++;
+                        if (!show || !statesLoaded) selectors[definition.Id].IsChecked = false;
+                    }
+                    bool showActions = CurrentStateFilter() == CatalogStateView.All;
+                    foreach (var card in actionOnlyCards) card.Visibility = showActions ? Visibility.Visible : Visibility.Collapsed;
+                    foreach (ComboBoxItem item in stateFilter.Items)
+                    {
+                        var view = (CatalogStateView)item.Tag;
+                        int count = definitions.Count(d => CatalogStateFilter.Includes(view, currentStates[d.Id], statesLoaded));
+                        item.Content = $"{CatalogStateFilter.Label(view)} ({count})";
+                    }
+                    filterSummary.Text = $"Showing {visible}/{definitions.Count} toggle options" +
+                        (showActions && actionOnlyCards.Count > 0 ? $" + {actionOnlyCards.Count} action-only tools" : "") +
+                        (statesLoaded ? "." : ". Status not verified; Analyze / reload is required.");
+                    emptyFilter.Visibility = visible == 0 && !(showActions && actionOnlyCards.Count > 0)
+                        ? Visibility.Visible : Visibility.Collapsed;
+                    if (scrollToTop) catalogRowsViewer.ChangeView(null, 0, null, true);
+                }
+                finally { updatingStateFilter = false; }
+            }
             void InvalidateCatalogView()
             {
                 if (window.IsClosed || loadedAtEpoch == CatalogStateEpoch.Version || applyInProgress || stateLoadInProgress) return;
                 statesLoaded = false;
+                UpdateStateFilter();
                 SetCatalogInteraction(false);
                 analyzeButton.IsEnabled = !individualActionGate.IsBusy;
                 availabilityBadge.View.Visibility = Visibility.Collapsed;
@@ -2707,12 +2774,13 @@ namespace Naufal_Windows_Tech_s_Powertoys
             CatalogSelectionPlan SelectedPlan() => CatalogSelectionPlan.Create(
                 definitions,
                 currentStates,
-                definition => selectors[definition.Id].IsChecked == true);
+                definition => IsVisibleOption(definition) && selectors[definition.Id].IsChecked == true);
 
             void SetCatalogInteraction(bool enabled)
             {
                 if (window.IsClosed) return;
                 bool busy = applyInProgress || stateLoadInProgress || individualActionGate.IsBusy;
+                stateFilter.IsEnabled = !busy;
                 window.CloseButton.IsEnabled = !busy;
                 enabled &= statesLoaded && !busy;
                 window.PrimaryButton.IsEnabled = enabled;
@@ -2734,6 +2802,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
 
             void UpdateSelectionSummary()
             {
+                UpdateStateFilter();
                 if (!statesLoaded)
                 {
                     availabilityBadge.View.Visibility = Visibility.Collapsed;
@@ -2760,7 +2829,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 foreach (ToolToggleDefinition definition in definitions)
                 {
                     selectors[definition.Id].IsChecked =
-                        currentStates[definition.Id].IsAvailable && predicate(definition);
+                        IsVisibleOption(definition) && currentStates[definition.Id].IsAvailable && predicate(definition);
                 }
                 UpdateSelectionSummary();
             }
@@ -2789,7 +2858,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 CatalogSelectionPlan restorePlan = CatalogSelectionPlan.Create(
                     items,
                     currentStates,
-                    _ => true);
+                    IsVisibleOption);
                 ToolToggleDefinition[] availableItems = (windowsDefault
                         ? restorePlan.Selected
                         : restorePlan.ToRestore)
@@ -3090,7 +3159,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
                     }
 
                     CatalogSelectionPlan plan = CatalogSelectionPlan.Create(
-                        items, currentStates, _ => true);
+                        items, currentStates, IsVisibleOption);
                     IReadOnlyList<ToolToggleDefinition> changes = targetOn ? plan.ToApply
                         : plan.Selected.Where(item => item.IsFeatureSwitch && currentStates[item.Id].IsOn).ToArray();
 
@@ -3413,6 +3482,12 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 }
             }
 
+            stateFilter.SelectionChanged += (_, _) =>
+            {
+                if (applyInProgress || stateLoadInProgress || individualActionGate.IsBusy || updatingStateFilter) return;
+                UpdateStateFilter(scrollToTop: true);
+                UpdateSelectionSummary();
+            };
             analyzeButton.Click += async (_, _) => await LoadCatalogStatesAsync();
             refreshBulkSummary = UpdateSelectionSummary;
 

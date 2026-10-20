@@ -16,8 +16,10 @@ public sealed partial class MainWindow
         InfoPage.Visibility = selected == "Info" ? Visibility.Visible : Visibility.Collapsed;
         SecurityPage.Visibility = selected == "Security" ? Visibility.Visible : Visibility.Collapsed;
         AdvancedPage.Visibility = selected == "Advanced" ? Visibility.Visible : Visibility.Collapsed;
+        NetworkPage.Visibility = selected == "Network" ? Visibility.Visible : Visibility.Collapsed;
         UiDisplaySettings.Apply(RootLayout);
         if (selected == "Home") OnHomeActivated();
+        if (selected == "Network") OnNetworkActivated();
     }
 
     private void MainNavigation_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
@@ -26,6 +28,7 @@ public sealed partial class MainWindow
     }
 
     partial void OnHomeActivated();
+    partial void OnNetworkActivated();
 
     private void HomeGrid_SizeChanged(object sender, SizeChangedEventArgs args)
     {

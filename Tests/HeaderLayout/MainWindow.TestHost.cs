@@ -92,6 +92,7 @@ public sealed partial class MainWindow : Window
             await CheckDiskDashboardAsync();
             await CheckDialogScrollingAsync();
             await CheckGpuUpdatesAsync();
+            await CheckNetworkSettingsAsync();
             File.AppendAllText(App.ResultPath, $"PASS: {_checks} native WinUI assertions, {_cases} layout cases, 8 flyouts. Minimum header contrast: {_minimumHeaderContrast:F2}:1; button contrast: {_minimumButtonContrast:F2}:1. No Windows settings changed.\n");
             Environment.ExitCode = 0;
         }
@@ -105,8 +106,8 @@ public sealed partial class MainWindow : Window
 
     private async Task CheckNavigationAsync()
     {
-        var pages = new FrameworkElement[] { HomePage, RepairPage, InfoPage, SecurityPage, AdvancedPage };
-        Check(MainNavigation.MenuItems.Count == 5, "exactly five navigation pages");
+        var pages = new FrameworkElement[] { HomePage, RepairPage, InfoPage, SecurityPage, AdvancedPage, NetworkPage };
+        Check(MainNavigation.MenuItems.Count == 6, "six navigation pages including Network Settings Manager");
         foreach (int width in new[] { 1920, 1280, 800, 480 })
         foreach (ElementTheme theme in new[] { ElementTheme.Light, ElementTheme.Dark })
         foreach (int percent in new[] { 25, 100, 200 })

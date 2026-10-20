@@ -16,17 +16,41 @@ namespace Naufal_Windows_Tech_s_Powertoys
         int WarningCount,
         string Report);
 
+    // All machine access is supplied together so the complete repair workflow can
+    // be regression-tested without touching the host's services or update cache.
+    internal sealed record UpdateRepairOperations(
+        Func<bool> IsAdministrator,
+        string WindowsDirectory,
+        Func<string, int?> ReadStart,
+        Func<string, CancellationToken, Task<string>> QueryState,
+        Func<string, IReadOnlyList<string>, TimeSpan, CancellationToken, Task<NativeCommandResult>> RunCommand,
+        Func<string, StringBuilder, CancellationToken, Task> RemoveLegacyLock,
+        Func<CancellationToken, Task> PollDelay);
+
     internal sealed partial class WindowsUpdateRepairService
     {
-        private static readonly string[] RepairServices = { "BITS", "wuauserv", "cryptsvc", "DoSvc" };
+        // Microsoft's cache-reset sequence uses these three services. Do not make
+        // stopping protected update-coordination services a prerequisite or alter
+        // their configuration, permissions, process, or scheduled tasks.
+        private static readonly string[] RepairServices = { "BITS", "wuauserv", "cryptsvc" };
 
-        private readonly NativeCommandRunner _commandRunner = new();
+        private static readonly NativeCommandRunner CommandRunner = new();
+        private readonly UpdateRepairOperations _operations;
+
+        public WindowsUpdateRepairService() : this(new UpdateRepairOperations(
+            WindowsPrivilegeService.IsAdministrator,
+            Environment.GetFolderPath(Environment.SpecialFolder.Windows),
+            ReadServiceStartValue, QueryNativeServiceStateAsync,
+            (file, args, timeout, token) => CommandRunner.RunAsync(file, args, timeout, token),
+            RemoveLegacyServiceLockAsync, token => Task.Delay(250, token))) { }
+
+        internal WindowsUpdateRepairService(UpdateRepairOperations operations) => _operations = operations;
 
         public async Task<MaintenanceOperationResult> RunAsync(
             IProgress<MaintenanceProgressUpdate>? progress = null,
             CancellationToken cancellationToken = default)
         {
-            if (!WindowsPrivilegeService.IsAdministrator())
+            if (!_operations.IsAdministrator())
             {
                 return new MaintenanceOperationResult(
                     false,
@@ -38,13 +62,16 @@ namespace Naufal_Windows_Tech_s_Powertoys
             List<string> warnings = new();
             MaintenanceStageTracker stages = new(progress, () => warnings.Count);
             progress = stages;
-            string windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+            string windows = _operations.WindowsDirectory;
             List<UpdateCacheBackup> cacheBackups = new();
-            bool restartUsoSvc = false;
+            // Record before issuing each stop, including ambiguous command failures.
+            HashSet<string> recoveryServices = new(StringComparer.OrdinalIgnoreCase);
 
             report.AppendLine("WINDOWS UPDATE FIX");
             report.AppendLine($"Started: {DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss zzz}");
             report.AppendLine(new string('=', 74));
+            report.AppendLine("Scope: BITS, wuauserv and cryptsvc; DataStore, Download and catroot2 caches.");
+            report.AppendLine("UsoSvc/DoSvc are left under Windows control. No service ACL, ownership, network, firewall or proxy reset is performed.");
 
             try
             {
@@ -59,39 +86,36 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 }
 
                 AddStage(report, progress, 2, 6, "Stop Windows Update services");
-                string usoState = await QueryServiceStateAsync("UsoSvc", cancellationToken);
-                if (usoState == "Unknown") throw new InvalidOperationException("Cannot read UsoSvc state before pausing update coordination.");
-                restartUsoSvc = usoState is not ("Stopped" or "NotFound");
-                await EnsureServicesStoppedAsync(report, warnings, cancellationToken);
+                await EnsureServicesStoppedAsync(report, warnings, recoveryServices, cancellationToken);
 
                 AddStage(report, progress, 3, 6, "Reset SoftwareDistribution cache");
                 foreach (string cache in new[] { @"SoftwareDistribution\DataStore", @"SoftwareDistribution\Download" })
                     cacheBackups.Add(await UpdateCacheReset.RunAsync(windows, cache,
-                        token => EnsureServicesStoppedAsync(report, warnings, token),
+                        token => EnsureServicesStoppedAsync(report, warnings, recoveryServices, token),
                         line => report.AppendLine(line), cancellationToken));
 
                 AddStage(report, progress, 4, 6, "Reset catroot2 cache");
                 cacheBackups.Add(await UpdateCacheReset.RunAsync(windows, @"System32\catroot2",
-                    token => EnsureServicesStoppedAsync(report, warnings, token),
+                    token => EnsureServicesStoppedAsync(report, warnings, recoveryServices, token),
                     line => report.AppendLine(line), cancellationToken));
 
                 AddStage(report, progress, 5, 6, "Restart Windows Update services");
-                foreach (string serviceName in new[] { "cryptsvc", "bits", "wuauserv", "DoSvc" })
+                foreach (string serviceName in new[] { "cryptsvc", "BITS", "wuauserv" })
                 {
-                    await SetServiceStateAsync(
+                    if (!await SetServiceStateAsync(
                         serviceName,
                         running: true,
                         report,
                         warnings,
-                        cancellationToken);
+                        cancellationToken))
+                        throw new InvalidOperationException($"Cache reset is incomplete: {serviceName} could not be restarted. See command details above.");
                 }
-                if (restartUsoSvc)
-                    await SetServiceStateAsync("UsoSvc", true, report, warnings, cancellationToken);
 
                 AddStage(report, progress, 6, 6, "Verify Windows Update repair");
+                List<string> verificationIssues = new();
                 foreach (string serviceName in RepairServices)
                 {
-                    int? actualStart = ReadServiceStartValue(serviceName);
+                    int? actualStart = _operations.ReadStart(serviceName);
                     string runtime = await QueryServiceStateAsync(serviceName, cancellationToken);
                     report.AppendLine(
                         $"VERIFY {serviceName}: Start={(actualStart?.ToString(CultureInfo.InvariantCulture) ?? "MISSING")} " +
@@ -99,20 +123,12 @@ namespace Naufal_Windows_Tech_s_Powertoys
                     foreach (string issue in UpdateServiceStartupPolicy.Verify(serviceName, actualStart, runtime))
                     {
                         warnings.Add(issue);
+                        verificationIssues.Add(issue);
                         report.AppendLine("WARNING: " + issue);
                     }
                 }
-                if (restartUsoSvc)
-                {
-                    string usoRuntime = await QueryServiceStateAsync("UsoSvc", cancellationToken);
-                    report.AppendLine("VERIFY UsoSvc: Runtime=" + usoRuntime);
-                    if (usoRuntime != "Running")
-                    {
-                        string issue = $"UsoSvc runtime state is {usoRuntime}, expected Running.";
-                        warnings.Add(issue);
-                        report.AppendLine("WARNING: " + issue);
-                    }
-                }
+                if (verificationIssues.Count > 0)
+                    throw new InvalidOperationException("Repair could not be verified: " + string.Join(" ", verificationIssues));
 
                 foreach (UpdateCacheBackup cache in cacheBackups)
                 {
@@ -122,6 +138,8 @@ namespace Naufal_Windows_Tech_s_Powertoys
                     report.AppendLine("Verified preserved backup: " + cache.Backup);
                 }
 
+                report.AppendLine("Local cache/service checks passed. Open Settings > Windows Update > Check for updates and retry the download.");
+                report.AppendLine("Download completion was not tested. Windows will rebuild its cache; this can take time. Backups were retained, not deleted.");
                 AppendFinalResult(report, true, warnings, null);
                 stages.Complete(true);
                 return new MaintenanceOperationResult(true, warnings.Count, report.ToString().TrimEnd());
@@ -130,7 +148,9 @@ namespace Naufal_Windows_Tech_s_Powertoys
             {
                 report.AppendLine($"ERROR: {exception.Message}");
                 // Cleanup must run even if the caller cancelled the repair.
-                await RecoverServicesAsync(report, warnings, restartUsoSvc);
+                await RecoverServicesAsync(report, warnings, recoveryServices);
+                report.AppendLine("No forced termination or automatic reboot was performed. If cache files remain locked, restart Windows manually when safe and retry.");
+                report.AppendLine("Use Save TXT to retain this report if the repair or download still fails. A partial cache reset is not a successful repair; existing backups remain in place.");
                 AppendFinalResult(report, false, warnings, exception.Message);
                 stages.Complete(false);
                 return new MaintenanceOperationResult(false, warnings.Count, report.ToString().TrimEnd());
@@ -143,14 +163,13 @@ namespace Naufal_Windows_Tech_s_Powertoys
             List<string> warnings,
             CancellationToken cancellationToken)
         {
-            await RemoveLegacyServiceLockAsync(serviceName, report, cancellationToken);
-            int? before = ReadServiceStartValue(serviceName);
+            cancellationToken.ThrowIfCancellationRequested();
+            int? before = _operations.ReadStart(serviceName);
             if (before is null)
             {
-                warnings.Add($"Cannot read {serviceName} startup configuration; the service may be missing or access was denied.");
-                report.AppendLine($"WARNING: {warnings[^1]}");
-                return;
+                throw new InvalidOperationException($"Cannot read {serviceName} startup configuration; the service may be missing or access was denied. Cache reset has not started.");
             }
+            await _operations.RemoveLegacyLock(serviceName, report, cancellationToken);
 
             if (UpdateServiceStartupPolicy.IsOperationalStart(serviceName, before))
             {
@@ -162,28 +181,14 @@ namespace Naufal_Windows_Tech_s_Powertoys
 
             string sc = GetSystemTool("sc.exe");
             string startMode = startValue == 2 ? "auto" : "demand";
-            NativeCommandResult result = await _commandRunner.RunAsync(
+            NativeCommandResult result = await _operations.RunCommand(
                 sc,
                 new[] { "config", serviceName, "start=", startMode },
                 TimeSpan.FromSeconds(20),
                 cancellationToken);
 
-            int? after = ReadServiceStartValue(serviceName);
-            if (!UpdateServiceStartupPolicy.IsOperationalStart(serviceName, after))
-            {
-                try
-                {
-                    using RegistryKey? key = Registry.LocalMachine.OpenSubKey(
-                        $@"SYSTEM\CurrentControlSet\Services\{serviceName}",
-                        writable: true);
-                    key?.SetValue("Start", startValue, RegistryValueKind.DWord);
-                }
-                catch (Exception exception)
-                {
-                    warnings.Add($"{serviceName}: {exception.Message}");
-                }
-                after = ReadServiceStartValue(serviceName);
-            }
+            LogCommand(report, serviceName, "config", result);
+            int? after = _operations.ReadStart(serviceName);
 
             if (UpdateServiceStartupPolicy.IsOperationalStart(serviceName, after))
             {
@@ -191,9 +196,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
             }
             else
             {
-                string warning = $"Unable to restore {serviceName} Start={startValue}; sc.exe exit {result.ExitCode}.";
-                warnings.Add(warning);
-                report.AppendLine($"WARNING: {warning}");
+                throw new InvalidOperationException($"Unable to restore {serviceName} Start={startValue}; sc.exe exit {result.ExitCode}. Cache reset has not started. Service permissions were not overridden.");
             }
         }
 
@@ -206,11 +209,6 @@ namespace Naufal_Windows_Tech_s_Powertoys
         {
             string current = await QueryServiceStateAsync(serviceName, cancellationToken);
             string target = running ? "Running" : "Stopped";
-            if (current == "NotFound" && serviceName is "DoSvc" or "UsoSvc")
-            {
-                report.AppendLine("Optional service not present: " + serviceName);
-                return true;
-            }
             if (string.Equals(current, target, StringComparison.OrdinalIgnoreCase))
             {
                 report.AppendLine($"Service already {target.ToLowerInvariant()}: {serviceName}");
@@ -218,22 +216,26 @@ namespace Naufal_Windows_Tech_s_Powertoys
             }
 
             string sc = GetSystemTool("sc.exe");
-            NativeCommandResult result = await _commandRunner.RunAsync(
+            NativeCommandResult result = await _operations.RunCommand(
                 sc,
                 new[] { running ? "start" : "stop", serviceName },
                 TimeSpan.FromSeconds(20),
                 cancellationToken);
+            LogCommand(report, serviceName, running ? "start" : "stop", result);
 
             Stopwatch wait = Stopwatch.StartNew();
             do
             {
-                await Task.Delay(250, cancellationToken);
+                await _operations.PollDelay(cancellationToken);
                 current = await QueryServiceStateAsync(serviceName, cancellationToken);
                 if (string.Equals(current, target, StringComparison.OrdinalIgnoreCase))
                 {
                     report.AppendLine($"{target} service: {serviceName}");
                     return true;
                 }
+                // A rejected command cannot be fixed by repeatedly sleeping. Still
+                // check read-back first to handle races with another service client.
+                if (result.TimedOut || (result.ExitCode != 0 && current is not ("StartPending" or "StopPending"))) break;
             }
             while (wait.Elapsed < TimeSpan.FromSeconds(30));
 
@@ -243,28 +245,50 @@ namespace Naufal_Windows_Tech_s_Powertoys
             return false;
         }
 
-        private async Task EnsureServicesStoppedAsync(StringBuilder report, List<string> warnings, CancellationToken token)
+        private async Task EnsureServicesStoppedAsync(StringBuilder report, List<string> warnings, HashSet<string> recoveryServices, CancellationToken token)
         {
-            string[] services = { "UsoSvc", "DoSvc", "bits", "cryptsvc", "wuauserv" };
+            string[] services = { "BITS", "wuauserv", "cryptsvc" };
             foreach (string name in services)
+            {
+                string before = await QueryServiceStateAsync(name, token);
+                if (before is "Unknown" or "NotFound")
+                    throw new InvalidOperationException($"Cannot read required service {name}: {before}. No cache rename will be attempted.");
+                if (before != "Stopped") recoveryServices.Add(name);
                 if (!await SetServiceStateAsync(name, false, report, warnings, token))
                     throw new InvalidOperationException($"Cache reset was not started: {name} could not be stopped.");
+            }
             // A service can restart while a later service is being stopped.
             // Never rename a cache based only on an earlier sc.exe exit code.
             foreach (string name in services)
             {
                 string state = await QueryServiceStateAsync(name, token);
-                if (state != "Stopped" && !(state == "NotFound" && name is "DoSvc" or "UsoSvc"))
+                if (state != "Stopped")
                     throw new InvalidOperationException($"Cache reset was not started: {name} changed to {state}. Let active updates finish, then retry.");
             }
         }
 
-        private async Task<string> QueryServiceStateAsync(
+        private async Task<string> QueryServiceStateAsync(string serviceName, CancellationToken token)
+        {
+            token.ThrowIfCancellationRequested();
+            string state = await _operations.QueryState(serviceName, token);
+            // The shared native reader uses spaced names; sc.exe uses numeric
+            // states. Normalize both paths before evaluating pending transitions.
+            return state switch
+            {
+                "Start Pending" => "StartPending",
+                "Stop Pending" => "StopPending",
+                "Continue Pending" => "ContinuePending",
+                "Pause Pending" => "PausePending",
+                _ => state
+            };
+        }
+
+        private static async Task<string> QueryNativeServiceStateAsync(
             string serviceName,
             CancellationToken cancellationToken)
         {
             if (GamingLiveStatusService.TryReadServiceState(serviceName, out string nativeState)) return nativeState;
-            NativeCommandResult result = await _commandRunner.RunAsync(
+            NativeCommandResult result = await CommandRunner.RunAsync(
                 GetSystemTool("sc.exe"),
                 new[] { "query", serviceName },
                 TimeSpan.FromSeconds(10),
@@ -291,13 +315,14 @@ namespace Naufal_Windows_Tech_s_Powertoys
         private async Task RecoverServicesAsync(
             StringBuilder report,
             List<string> warnings,
-            bool restartUsoSvc)
+            HashSet<string> recoveryServices)
         {
+            if (recoveryServices.Count == 0) return;
             report.AppendLine("Recovering Windows Update services and verifying runtime states...");
-            List<string> services = new() { "cryptsvc", "bits", "wuauserv", "DoSvc" };
-            if (restartUsoSvc) services.Add("UsoSvc");
+            string[] services = { "cryptsvc", "BITS", "wuauserv" };
             foreach (string serviceName in services)
             {
+                if (!recoveryServices.Contains(serviceName)) continue;
                 try
                 {
                     await SetServiceStateAsync(serviceName, true, report, warnings, CancellationToken.None);
@@ -311,7 +336,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
             }
         }
 
-        private async Task RemoveLegacyServiceLockAsync(
+        private static async Task RemoveLegacyServiceLockAsync(
             string serviceName,
             StringBuilder report,
             CancellationToken cancellationToken)
@@ -320,12 +345,13 @@ namespace Naufal_Windows_Tech_s_Powertoys
             string taskName = $"WPT78_ServiceLock_{safeName}";
             try
             {
-                await _commandRunner.RunAsync(
+                await CommandRunner.RunAsync(
                     GetSystemTool("schtasks.exe"),
                     new[] { "/delete", "/tn", taskName, "/f" },
                     TimeSpan.FromSeconds(10),
                     cancellationToken);
             }
+            catch (OperationCanceledException) { throw; }
             catch
             {
             }
@@ -372,6 +398,12 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 Environment.GetFolderPath(Environment.SpecialFolder.Windows),
                 "System32",
                 fileName);
+        }
+
+        private static void LogCommand(StringBuilder report, string service, string action, NativeCommandResult result)
+        {
+            report.AppendLine($"sc.exe {action} {service}: exit={result.ExitCode}; timed out={result.TimedOut}");
+            if (!string.IsNullOrWhiteSpace(result.CombinedOutput)) report.AppendLine(result.CombinedOutput.Trim());
         }
 
         private static void AddStage(

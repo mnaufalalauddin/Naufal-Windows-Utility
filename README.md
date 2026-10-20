@@ -1,24 +1,26 @@
-# Naufal Windows Utility
+# Naufal Windows Utility — Windows Debloat, Repair & Network Tools
 
-[![Source version](https://img.shields.io/badge/Source_Version-v8.0.0.0-0567ff?style=for-the-badge)](CHANGELOG.md)
-[![Development preview](https://img.shields.io/badge/Preview-9_October_2026-8250df?style=for-the-badge)](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.0-build.20261009)
+[![Source version](https://img.shields.io/badge/Source_Version-v8.0.0.1-0567ff?style=for-the-badge)](CHANGELOG.md)
+[![Development preview](https://img.shields.io/badge/Preview-20_October_2026-8250df?style=for-the-badge)](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.1)
 [![Windows target](https://img.shields.io/badge/Target-Windows_10_%2F_11_x64-0078d4?style=for-the-badge)](#quick-start)
 [![License](https://img.shields.io/badge/License-MIT-16803c?style=for-the-badge)](LICENSE)
 [![Interface](https://img.shields.io/badge/UI-English-8250df?style=for-the-badge)](#interface--project-status)
 
-A native Windows dashboard to **repair system components**, **inspect disk health and system information**, **manage Windows apps**, **review privacy settings**, and **configure gaming and performance options**—with live monitoring and operation progress in one place.
+An open-source **Windows 10 / Windows 11 debloat and repair utility** with a native desktop interface. Review and remove selected built-in Windows apps, configure Windows tweaks, repair Windows Update components, inspect SMART disk health, check GPU drivers, and manage Ethernet/Wi-Fi IP and DNS settings—with confirmations and scoped recovery support.
+
+Looking for a **Windows debloater**, **Windows Update repair tool**, **Windows tweaks**, or an **IP/DNS network settings manager**? Explore the features below before making changes. Debloating means choosing individual apps/settings, not removing everything; performance improvements are not guaranteed. **Untuk pengguna Indonesia:** aplikasi open-source untuk debloat Windows, perbaikan komponen Windows, dan pengaturan jaringan. Antarmuka aplikasi menggunakan bahasa Inggris.
 
 Developed by **Muhammad Naufal Alauddin**. Independent, open-source, and under active development. **Not affiliated with Microsoft or Microsoft PowerToys.**
 
-**[Download installer](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.0-build.20261009)** · [Features](#whats-included) · [GPU drivers](#gpu-driver-release-notifications) · [Build from source](#build--develop) · [Changelog](CHANGELOG.md)
+**[Download v8.0.0.1](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.1)** · [Features](#whats-included) · [Verification](docs/verification-20261015.md) · [Build from source](#build--develop) · [Changelog](CHANGELOG.md)
 
-> **9 October 2026 — Intel Catalog Fix Preview**
-> Intel release checks now use explicit HTML/English request headers, resolving
-> the reproduced **HTTP 403** on the development connection. Live metadata probes
-> succeed for Arc, Arc Pro, UHD 630 and Iris Xe catalogs. The shared GPU action
-> header, driver-type selection and main-header alignment fixes are retained.
-> This is a **pre-release**: real driver installations and all network/hardware
-> combinations are not certified. Checking for updates never installs a driver.
+> **20 October 2026 — v8.0.0.1 Network & Repair Preview**
+> Windows Update Fix completed all six cache/service repair stages in a Windows
+> 11 VMware guest with zero warnings. Direct Network Settings, per-SSID Wi-Fi
+> support and app/tweak state filters are included alongside the Intel catalog fix.
+> **Preview, not universal certification:** online stuck-download recovery and
+> physical Intel RST / ASM2362 / RTL9210 validation remain separate acceptance
+> tests. See the [verification matrix](docs/verification-20261015.md).
 
 ## Preview
 
@@ -59,7 +61,7 @@ data; they are not live update results or a screenshot of the complete inventory
 
 > **Back up important data before applying tweaks.** System-changing operations may require Administrator privileges. Review each option's warning; do not apply every tweak indiscriminately.
 
-1. Open the [9 October development preview](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.0-build.20261009) and download `Naufal-Windows-Utility-Setup-8.0.0.0-x64.exe`. Compare its SHA-256 with that release's attached `SHA256SUMS.txt`. The [previous non-preview release](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/latest) remains available but does not contain all changes described here. Alternatively, [build from source](#build--develop).
+1. Open the [v8.0.0.1 development preview](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.1) and download `Naufal-Windows-Utility-Setup-8.0.0.1-x64.exe`. Compare its SHA-256 with that release's attached `SHA256SUMS.txt`. The [previous non-preview release](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/latest) remains available but does not contain all changes described here. Alternatively, [build from source](#build--develop).
 2. Run the installer, open **Naufal Windows Utility**, and review the first-run prerequisites.
 3. Choose a catalog or performance profile, read its description, and apply only the changes you need.
 4. Read analysis results inline in the tool window; Apply/Restore operations retain their separate progress and verification results. For completed changes marked restart-sensitive, the app offers **Restart now** or **Later** after active tasks finish. Save your work before accepting. Choosing Later does not schedule a reboot; restart from Windows when convenient.
@@ -77,15 +79,74 @@ data; they are not live update results or a screenshot of the complete inventory
 | **Repair** | Full Repair, Quick Repair, Windows Update Fix, Microsoft Store Fix, and Explorer Fix. |
 | **System** | Disk dashboard with device-derived SMART health, NVMe endurance/read-write/error counters, ATA/SAT attributes and Windows reliability fallback; system reports with opt-in local IP/MAC addresses; Windows / Office activation status tools. A valid license is still required. |
 | **Tweaks & De-Bloat** | Essential and Gaming catalogs, service controls, privacy and advertising policies, and supported AI-related settings. |
-| **Built-in Windows Apps** | Alphabetical app removal / recovery, including OneDrive, with Recommended, Optional, and Not Recommended removal guidance. |
+| **Built-in Windows Apps** | Alphabetical app removal / recovery, including OneDrive, with Installed / Not installed filters, counts, visible-only selection, and Recommended, Optional, and Not Recommended removal guidance. |
 | **Security & Compatibility** | BitLocker Manager, automatic device-encryption policy, Defender controls, Smart App Control, GPU Driver Manager, runtime checks, and MSI Mode Utility. |
-| **Monitoring & Interface** | CPU, RAM, GPU 3D and network graphs; Task Monitoring; per-operation progress; Light/Dark themes; text scaling; an English-only interface; and five sidebar pages. |
+| **Network Settings Manager** | Active-adapter cards and direct Ethernet IPv4/IPv6/DNS editing with Save to Windows and recovery snapshots. No local profile workflow. Wi-Fi saves connected-SSID IP/DNS metadata on reviewed Windows builds, without global adapter writes (experimental; bounded IPv4 DNS Save/rollback tested). [Scope and preview limitations](docs/network-settings.md). |
+| **Monitoring & Interface** | CPU, RAM, GPU 3D and network graphs; Task Monitoring; per-operation progress; Light/Dark themes; text scaling; an English-only interface; and six sidebar pages. |
 | **Action safety & diagnostics** | Inline action inventory, conflict checks, durable operation journals and scan invalidation. |
 | **Security status** | Inline configured/running protection evidence, read-only HVCI status and the existing guarded LSA Enable control. |
 
+### Tweak state filters (source update, 10 October 2026)
+
+**Essential Windows Tweaks**, **Gaming Tweaks**, and **Advanced Windows Tweaks &
+De-Bloat** offer a **Show options** filter: **All options / ON / OFF / Partially
+applied / Unavailable / Not verified**. Counts and filtering use analyzed backend
+state, not a switch's pending choice. Mixed settings, failed reads and stale
+scans are never treated as confirmed OFF. For most tweaks, ON means the tweak
+is applied, not that the affected Windows feature is enabled.
+
+**Select visible**, **Select safe/advanced**, and bulk Restore operate only on
+visible options. **Restore visible defaults** keeps its existing confirmation
+and Windows-default behavior, restricted to the filtered scope. Hidden selections
+are cleared; changing a filter never applies or restores a tweak. Action-only
+tools (including Review apps) remain accessible under **All options**. Reload
+preserves the chosen filter; an invalidated scan requires **Analyze / reload**
+before further changes. These changes are included in v8.0.0.1.
+
+### Built-in Windows Apps — installation filters (source update, 10 October 2026)
+
+Open **Advanced Windows Tweaks & De-Bloat → Built-in Windows Apps → Review apps**,
+then choose **All apps**, **Installed**, **Not installed**, or **Not verified**
+under **Show apps**. Each view remains A–Z and shows counts. Installed includes
+registered apps labelled **Needs repair**; failed or deferred inventory checks
+stay **Not verified**, never falsely **Not installed**. Store apps retain the
+existing current-account scope; OneDrive retains its existing installation scope.
+
+**Select visible** selects only apps shown by the current filter. Changing filters
+clears hidden selections, and actions still require confirmation. **Analyze / reload**
+clears old selections and refreshes status; the same filter is reapplied after an
+uninstall or restore. Filtering does not install/remove apps or initiate additional
+network checks. These changes are included in v8.0.0.1.
+
+### Windows Update Fix — source update, 10 October 2026
+
+For a stuck download, **System Repair → Windows Update Fix** repairs and checks
+BITS, Windows Update and Cryptographic Services, then preserves the DataStore,
+Download and catroot2 caches under unique backup names. It does not require
+stopping protected UsoSvc/DoSvc coordinators, force-kill services, reset service
+permissions, or delete earlier backups. Close Windows Update Settings first;
+do not use cache repair while updates are installing.
+
+Downloads may restart from the beginning and the local update-history view may
+be rebuilt; installed updates are not uninstalled. Failed prerequisites, locked
+caches, failed restarts and unverifiable final states remain explicit failures
+with command diagnostics available through **Save TXT**. After local checks pass,
+open **Settings → Windows Update → Check for updates** to retry the download.
+Local repair verification is not a guarantee that an online download will finish.
+
+Included in v8.0.0.1. The Windows 11 VMware guest completed all
+six stages at 21:46 WIB on 15 October, with zero warnings: all three services
+were verified Running and all three cache backups were retained. This is live
+cache/service repair evidence, **not yet proof that a previously stuck online
+download finished**. The focused suite additionally passes 29 simulated workflow
+assertions, including denied operations, cancellation, locked caches and failed
+read-back. [Evidence and remaining acceptance criteria](docs/verification-20261015.md).
+The reset scope follows [Microsoft's Windows Update guidance](https://learn.microsoft.com/en-us/troubleshoot/windows-client/installing-updates-features-roles/additional-resources-for-windows-update),
+without its destructive deletion or service-ACL reset steps.
+
 ### Navigation
 
-The sidebar contains **Home**, **System Repair**, **System Info**, **Windows Security**, and **Advanced Windows Tweaks**. Home prioritizes performance profiles and current system status, with Quick Repair, System Report, shader-cache cleanup, and the Legacy Windows Panels launcher. Expand **Live telemetry** for graphs or **Technical details** for diagnostic output. All existing repair and catalog entry points remain available on their corresponding pages.
+The sidebar contains **Home**, **System Repair**, **System Info**, **Windows Security**, **Advanced Windows Tweaks**, and **Network Settings Manager**. Home prioritizes performance profiles and current system status, with Quick Repair, System Report, shader-cache cleanup, and the Legacy Windows Panels launcher. Expand **Live telemetry** for graphs or **Technical details** for diagnostic output. All existing repair and catalog entry points remain available on their corresponding pages.
 
 ### Disk health and system reports
 
@@ -99,7 +160,7 @@ Availability depends on the drive, controller, firmware, and Windows driver. End
 
 ### GPU driver release notifications
 
-The **9 October preview** includes an online release panel in **GPU Driver
+The current preview includes an online release panel in **GPU Driver
 Manager**. Opening the manager checks the selected GPU against its official
 vendor catalog; select another GPU or use **Check for updates** to inspect it.
 **Check for updates**, **Repair driver**, and **Download & install** share a
@@ -125,7 +186,7 @@ revalidation and confirmation; Repair can update/reinstall that release rather
 than silently switching channels. No substitute-channel fallback or automatic
 downgrade is performed. The selected channel is not proof of the installed channel.
 See [GPU update behavior and limitations](docs/gpu-driver-updates.md).
-**Included in the 9 October preview:** explicit HTML
+**Included in this preview (implemented 9 October):** explicit HTML
 and English-language request headers resolved the reproduced Intel HTTP 403.
 Live metadata checks now succeed for Arc, Arc Pro and the tested legacy/Iris Xe
 catalogs using synthetic device identities. This does not certify installation
@@ -133,6 +194,60 @@ or universal hardware/network compatibility. Failed checks remain unavailable;
 no browser cookies, login session or third-party proxy is used.
 
 ## A simpler interface
+
+### Network Settings Manager — local development preview
+
+The main-window page now shows current values for active Ethernet/Wi-Fi adapters.
+Edit Ethernet IPv4/IPv6 addresses, subnet mask/prefix, gateway and preferred/alternate
+DNS directly, then choose **Save to Windows**. Confirmation, recovery snapshots and
+configuration read-back remain in place. Only edited sections are written.
+
+Local profile libraries, drafts and automatic activation have been removed from the
+page. Old local library files are left untouched and are no longer loaded by the UI.
+Wi-Fi now uses a separate **connected-SSID Save to Windows** provider for IPv4/IPv6,
+gateway and DNS, with original-metadata recovery and stored-value read-back. It
+never falls back to global adapter writes. This experimental private API path is
+restricted to the exact reviewed x64 Windows WLAN binaries; unsupported builds
+remain read-only with a Windows Settings handoff. [Provider scope and evidence](docs/wifi-ssid-provider.md).
+
+Additional panels retain individually confirmed printer, computer/workgroup,
+network-drive, WINS/route, hosts, local program/script and SMTP TCP-check actions.
+These are separate from IP/DNS saving and snapshot recovery.
+
+**A live per-SSID IPv4 DNS metadata Save/rollback passed on one host.** Original
+metadata was restored; inspected adapter-global values and other saved SSIDs were
+unchanged. A subsequent reconnect/two-SSID test verified active IPv4 DNS/DHCP and
+IPv6 automatic configuration, each network's own DNS/default gateway, and rollback.
+Two manual reboots also passed: saved configuration persisted after the first,
+and exact original metadata plus automatic configuration remained restored after
+the second. A later reserved manual IPv4/subnet/gateway test passed reconnect,
+two-SSID isolation, Wi-Fi-bound HTTPS and exact rollback to DHCP. Separate
+Wi-Fi-bound IPv4/IPv6 DNS and HTTPS checks passed on automatic configuration.
+Windows temporarily projects the active SSID's static addressing into the Wi-Fi
+interface DHCP flag; the flag returns to its baseline on the other SSID and after
+rollback. Static IPv4 persistence and subsequent DHCP recovery across two manual
+reboots passed, completing the checkpoint on 12 October 2026. Temporary manual
+IPv6 address/prefix/gateway/DNS, reconnect, Wi-Fi-bound HTTPS and exact rollback
+also passed on that host. Post-boot automatic-mode traffic was partial: all four
+HTTPS checks passed, but three of eight DNS queries timed out through the router's
+IPv6 resolver, before the manual IPv6 test. A later two-SSID test confirmed the
+requested manual IPv6 address was absent on the other SSID and effective again
+on return. Follow-up on 13 October found that two initially listed RA privacy
+addresses disappeared by the 10-second check and remained absent at 30 seconds;
+instantaneous isolation during transition is not certified. The manual IPv6 two-reboot audit
+completed on 12 October: manual configuration and Wi-Fi-bound HTTPS passed after
+the first boot, then exact metadata/automatic runtime recovery and Wi-Fi-bound
+HTTPS passed after the second. A temporary, explicitly authorized alternative IPv6
+DNS test passed all eight Wi-Fi-bound queries after per-SSID Save/reconnect;
+exact rollback restored the original router DNS. This is a verified alternative,
+not a repair of the router's intermittent DNS replies. With separate owner consent,
+the alternative IPv6 DNS was subsequently retained for the tested SSID; all 12
+final Wi-Fi-bound DNS/HTTPS checks passed, with original recovery snapshot kept.
+This is a host-specific choice, not an automatic change for other users.
+Additional-action mutations remain unverified. See
+[the feature guide](docs/network-settings.md). These changes are included in
+v8.0.0.1. The retained-DNS post-boot check also passed on 15 October; this does
+not certify the original router DNS service or other hardware.
 
 The current source removes **Resource Analyzer**, **Background Owner Finder**,
 **Storage / Windows Servicing**, **Offline Image Workspace**, and the standalone
@@ -227,7 +342,7 @@ Set-Location Naufal-Windows-Utility
 The script restores dependencies, publishes the self-contained Native AOT application, includes dependency notices, and builds the installer:
 
 ```text
-artifacts\installer\Naufal-Windows-Utility-Setup-8.0.0.0-x64.exe
+artifacts\installer\Naufal-Windows-Utility-Setup-8.0.0.1-x64.exe
 ```
 
 Build tools are not required to run the packaged application. Generated binaries and private runtime data are excluded from Git.
@@ -276,7 +391,13 @@ The project file retains its historical filename. Passing tests is not proof tha
 
 ## Interface & Project Status
 
-**Current preview: [v8.0.0.0-build.20261009](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.0-build.20261009).**
+**Current preview: [v8.0.0.1](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.1).**
+Fresh checks for this release passed 4,984 backend regression assertions, 276
+network workflow assertions, 375 localization checks and 163 GPU metadata/service
+assertions. The Native AOT installer was rebuilt as 8.0.0.1. See the
+[release notes and checksum](docs/release-8.0.0.1.md). It remains unsigned and
+does not claim completion of the outstanding physical/live acceptance tests.
+
 The simplified interface retains Disk Info/SMART, repair, existing tweak and
 recovery backends, action safety checks and guarded LSA Enable. HVCI is read-only.
 The removed storage/offline/resource/background modules are test-only historical
@@ -288,10 +409,10 @@ native WinUI assertions covering 128 layout cases, scaling, both themes, long
 confirmation scrolling and inline error details. These tests do not apply host
 tweaks, restart Windows or establish live LSA/driver/controller compatibility.
 
-The GPU driver-type/header revision included in this preview passes 163 metadata/service
+Historical verification of the GPU driver-type/header revision passed 163 metadata/service
 assertions and 41,521 Native AOT UI assertions, including 12 GPU-header/panel layout
 combinations and isolated button invocation. All 4,786 profile/action and 347
-English UI checks pass. [The changelog](CHANGELOG.md) records packaging results,
+English UI checks passed at that checkpoint. [The changelog](CHANGELOG.md) records packaging results,
 the release installer checksum and live catalog limitations. Tests do not install
 or repair real GPU drivers. Earlier verification figures below are historical.
 
@@ -307,8 +428,8 @@ report-export checks**. Read-only Native AOT probes successfully read two NVMe
 SSDs and 27 ATA attributes from one USB drive. The USB drive's overall SMART
 health remained Unknown when the driver could not confirm it. These results do
 not certify every controller, Windows version, or system-changing operation.
-Application version remains **v8.0.0.0**; dated release tags distinguish builds
-without replacing earlier release history.
+Application version is now **v8.0.0.1**. Earlier v8.0.0.0 dated builds and their
+verification history remain intact; their test results are not new v8.0.0.1 tests.
 
 The [28 September refresh build](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.0-build.20260928.2)
 includes neutral SMART report wording, the latest Light/Dark README previews,
