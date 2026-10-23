@@ -20,6 +20,7 @@ public sealed partial class MainWindow
         UiDisplaySettings.Apply(RootLayout);
         if (selected == "Home") OnHomeActivated();
         if (selected == "Network") OnNetworkActivated();
+        if (selected == "Advanced") OnAdvancedActivated();
     }
 
     private void MainNavigation_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
@@ -29,6 +30,7 @@ public sealed partial class MainWindow
 
     partial void OnHomeActivated();
     partial void OnNetworkActivated();
+    partial void OnAdvancedActivated();
 
     private void HomeGrid_SizeChanged(object sender, SizeChangedEventArgs args)
     {

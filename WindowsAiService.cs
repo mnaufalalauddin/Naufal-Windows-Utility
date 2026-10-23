@@ -189,6 +189,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
 
         private async Task ApplyAsync()
         {
+            DebloatJournal.RequireNoGranularAi();
             var store = await CopilotStoreService.ProbeAsync();
             if (store?.InventoryError is string inventoryError) throw new InvalidOperationException(inventoryError);
             RecallState recall = await ReadRecallStateAsync();
@@ -229,6 +230,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
 
         private async Task RestoreAsync()
         {
+            DebloatJournal.RequireNoGranularAi();
             using RegistryKey? backup = Registry.CurrentUser.OpenSubKey(BackupPath, writable: false);
             if (backup is null) { await RestoreWindowsDefaultsAsync(); return; }
             var tags = PolicySettings.Select(PolicyTag).ToList();
@@ -266,6 +268,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
 
         private async Task RestoreWindowsDefaultsAsync()
         {
+            DebloatJournal.RequireNoGranularAi();
             foreach (AiPolicySetting setting in PolicySettings)
             {
                 RegistryRestorePlan.Execute(new[] { new RestoreRegistryValue(new(setting.Hive, setting.Path, setting.Name), null, null) });

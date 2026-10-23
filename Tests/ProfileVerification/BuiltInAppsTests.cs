@@ -77,13 +77,16 @@ internal static class BuiltInAppsTests
         var removed = await BuiltInAppsRemoval.RunAsync(backend, targets.Select(t => t.Id), updates);
         check(removed.Success && removed.Succeeded == targets.Count && backend.Packages.Count == 0, "all apps uninstall verified");
         check(backend.Saved && !backend.SavedRestore && backend.Log.Count == targets.Count, "plan before removal and all result logs");
+        check(backend.History.Count == targets.Count && backend.History.All(e => !e.Restored), "history records only verified removals");
         check(updates.Items.Count(u => u.State == "COMPLETED") == targets.Count && updates.Items.Any(u => u.State == "PROGRESS"), "per-app success and live progress");
         var restored = await BuiltInAppsRemoval.RunAsync(backend, targets.Select(t => t.Id), updates, restore: true);
         check(restored.Success && restored.Succeeded == targets.Count && backend.Packages.Count == targets.Count, "restore all missing apps verifies each identity");
         check(backend.SavedRestore, "restore saves audit before mutations");
+        check(backend.History.Count(e => e.Restored) == targets.Count, "verified restore records an intentional return");
         backend = new(); updates = new();
         removed = await BuiltInAppsRemoval.RunAsync(backend, ["Clock"], updates);
         check(removed.Success && removed.Unavailable == 1 && backend.RemoveCalls == 0 && updates.Items.Single().State == "UNAVAILABLE", "absent uninstall neutral, no mutation");
+        check(backend.History.Count == 0, "already-absent app does not invent removal history");
         backend = new() { Packages = [Package(targets.Single(t => t.Id == "Clock"))], RemoveFailure = new UnauthorizedAccessException("denied") };
         removed = await BuiltInAppsRemoval.RunAsync(backend, ["Clock"], new Updates());
         check(!removed.Success && removed.Failed == 1 && removed.Unavailable == 0, "access denied not unavailable");
@@ -96,6 +99,10 @@ internal static class BuiltInAppsTests
         backend = new() { Packages = [Package(targets.Single(t => t.Id == "Clock"))], KeepAfterRemove = true };
         removed = await BuiltInAppsRemoval.RunAsync(backend, ["Clock"], null);
         check(!removed.Success && removed.Failed == 1, "uninstall return alone not success");
+        check(backend.History.Count == 0, "failed readback cannot arm reinstalled detection");
+        backend = new() { Packages = targets.Select(t => Package(t)).ToList(), HistoryFailure = true };
+        removed = await BuiltInAppsRemoval.RunAsync(backend, ["AV1", "Clock"], null);
+        check(!removed.Success && removed.NotStarted == 1 && backend.RemoveCalls == 1, "history persistence failure stops further removals");
         backend = new() { NoRestore = true };
         restored = await BuiltInAppsRemoval.RunAsync(backend, ["Clock"], null, true);
         check(!restored.Success && restored.Failed == 1 && restored.Unavailable == 0, "restore missing readback not false success/unavailable");
@@ -239,6 +246,8 @@ internal static class BuiltInAppsTests
     {
         internal List<BuiltInAppPackage> Packages = new();
         internal List<string> Log = new();
+        internal List<(string Id, bool Restored)> History = [];
+        internal bool HistoryFailure;
         internal Exception? ReadFailure, RemoveFailure, RestoreFailure;
         internal bool SaveFailure, AppendFailure, Saved, SavedRestore, KeepAfterRemove, NoRestore, RestoreUnhealthy, FailReadback;
         internal int RemoveCalls, RestoreCalls, Reads;
@@ -253,6 +262,8 @@ internal static class BuiltInAppsTests
         { if (SaveFailure) throw new IOException("audit denied"); Saved = true; SavedRestore = restore; return Task.CompletedTask; }
         public Task AppendResultAsync(string text)
         { if (AppendFailure) throw new IOException("disk full"); Log.Add(text); return Task.CompletedTask; }
+        public Task RecordVerifiedAsync(string id, bool restored)
+        { if (HistoryFailure) throw new IOException("history disk full"); History.Add((id, restored)); return Task.CompletedTask; }
         public Task RemoveAsync(BuiltInAppPackage package, IProgress<CatalogProgressUpdate>? progress)
         {
             if (!Saved) throw new InvalidOperationException("mutation before audit");

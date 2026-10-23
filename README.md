@@ -1,7 +1,7 @@
 # Naufal Windows Utility — Windows Debloat, Repair & Network Tools
 
-[![Source version](https://img.shields.io/badge/Source_Version-v8.0.0.1-0567ff?style=for-the-badge)](CHANGELOG.md)
-[![Development preview](https://img.shields.io/badge/Preview-20_October_2026-8250df?style=for-the-badge)](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.1)
+[![Source version](https://img.shields.io/badge/Source_Version-v8.0.0.2-0567ff?style=for-the-badge)](CHANGELOG.md)
+[![Development preview](https://img.shields.io/badge/Preview-23_October_2026-8250df?style=for-the-badge)](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.2)
 [![Windows target](https://img.shields.io/badge/Target-Windows_10_%2F_11_x64-0078d4?style=for-the-badge)](#quick-start)
 [![License](https://img.shields.io/badge/License-MIT-16803c?style=for-the-badge)](LICENSE)
 [![Interface](https://img.shields.io/badge/UI-English-8250df?style=for-the-badge)](#interface--project-status)
@@ -12,17 +12,25 @@ Looking for a **Windows debloater**, **Windows Update repair tool**, **Windows t
 
 Developed by **Muhammad Naufal Alauddin**. Independent, open-source, and under active development. **Not affiliated with Microsoft or Microsoft PowerToys.**
 
-**[Download v8.0.0.1](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.1)** · [Features](#whats-included) · [Verification](docs/verification-20261015.md) · [Build from source](#build--develop) · [Changelog](CHANGELOG.md)
+**[Download v8.0.0.2](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.2)** · [Features](#whats-included) · [Release notes](docs/release-8.0.0.2.md) · [Build from source](#build--develop) · [Changelog](CHANGELOG.md)
 
-> **20 October 2026 — v8.0.0.1 Network & Repair Preview**
-> Windows Update Fix completed all six cache/service repair stages in a Windows
-> 11 VMware guest with zero warnings. Direct Network Settings, per-SSID Wi-Fi
-> support and app/tweak state filters are included alongside the Intel catalog fix.
-> **Preview, not universal certification:** online stuck-download recovery and
-> physical Intel RST / ASM2362 / RTL9210 validation remain separate acceptance
-> tests. See the [verification matrix](docs/verification-20261015.md).
+> **23 October 2026 — v8.0.0.2 De-bloat Workspace Preview**
+> Six inline panels add individual AI controls, desktop/OEM apps, startup and
+> background controls, reinstalled-app detection, and provisioning for new accounts.
+> **Preview, not universal certification:** new live VM acceptance is pending.
+> Online stuck-download recovery and physical Intel RST / ASM2362 / RTL9210
+> validation also remain outstanding. Read the [release limitations](docs/release-8.0.0.2.md).
 
 ## Preview
+
+### New in v8.0.0.2: six-panel De-bloat workspace
+
+Open **Advanced Windows Tweaks → De-bloat workspace** for inline individual AI controls, desktop/OEM app inventory
+and registered uninstallers, scoped startup management, per-app background policy,
+verified-removal/reinstallation detection, and guarded provisioning management for
+new Windows accounts. See [behavior, recovery and limitations](docs/debloat-workspace.md).
+These additions are included in the **v8.0.0.2 preview installer**.
+Live VM acceptance remains separate from compilation and simulated tests.
 
 
 ### Dark Mode
@@ -61,7 +69,7 @@ data; they are not live update results or a screenshot of the complete inventory
 
 > **Back up important data before applying tweaks.** System-changing operations may require Administrator privileges. Review each option's warning; do not apply every tweak indiscriminately.
 
-1. Open the [v8.0.0.1 development preview](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.1) and download `Naufal-Windows-Utility-Setup-8.0.0.1-x64.exe`. Compare its SHA-256 with that release's attached `SHA256SUMS.txt`. The [previous non-preview release](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/latest) remains available but does not contain all changes described here. Alternatively, [build from source](#build--develop).
+1. Open the [v8.0.0.2 development preview](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.2) and download `Naufal-Windows-Utility-Setup-8.0.0.2-x64.exe`. Compare its SHA-256 with that release's attached `SHA256SUMS.txt`. The [previous non-preview release](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/latest) remains available but does not contain all changes described here. Alternatively, [build from source](#build--develop).
 2. Run the installer, open **Naufal Windows Utility**, and review the first-run prerequisites.
 3. Choose a catalog or performance profile, read its description, and apply only the changes you need.
 4. Read analysis results inline in the tool window; Apply/Restore operations retain their separate progress and verification results. For completed changes marked restart-sensitive, the app offers **Restart now** or **Later** after active tasks finish. Save your work before accepting. Choosing Later does not schedule a reboot; restart from Windows when convenient.
@@ -79,6 +87,7 @@ data; they are not live update results or a screenshot of the complete inventory
 | **Repair** | Full Repair, Quick Repair, Windows Update Fix, Microsoft Store Fix, and Explorer Fix. |
 | **System** | Disk dashboard with device-derived SMART health, NVMe endurance/read-write/error counters, ATA/SAT attributes and Windows reliability fallback; system reports with opt-in local IP/MAC addresses; Windows / Office activation status tools. A valid license is still required. |
 | **Tweaks & De-Bloat** | Essential and Gaming catalogs, service controls, privacy and advertising policies, and supported AI-related settings. |
+| **De-bloat workspace** | Six inline panels: granular AI policies, registered desktop/OEM uninstallers, scoped startup controls, supported packaged-app background restrictions, verified-removal history, and allowlisted provisioning removal for new accounts. [Scope and recovery limits](docs/debloat-workspace.md). |
 | **Built-in Windows Apps** | Alphabetical app removal / recovery, including OneDrive, with Installed / Not installed filters, counts, visible-only selection, and Recommended, Optional, and Not Recommended removal guidance. |
 | **Security & Compatibility** | BitLocker Manager, automatic device-encryption policy, Defender controls, Smart App Control, GPU Driver Manager, runtime checks, and MSI Mode Utility. |
 | **Network Settings Manager** | Active-adapter cards and direct Ethernet IPv4/IPv6/DNS editing with Save to Windows and recovery snapshots. No local profile workflow. Wi-Fi saves connected-SSID IP/DNS metadata on reviewed Windows builds, without global adapter writes (experimental; bounded IPv4 DNS Save/rollback tested). [Scope and preview limitations](docs/network-settings.md). |
@@ -342,7 +351,7 @@ Set-Location Naufal-Windows-Utility
 The script restores dependencies, publishes the self-contained Native AOT application, includes dependency notices, and builds the installer:
 
 ```text
-artifacts\installer\Naufal-Windows-Utility-Setup-8.0.0.1-x64.exe
+artifacts\installer\Naufal-Windows-Utility-Setup-8.0.0.2-x64.exe
 ```
 
 Build tools are not required to run the packaged application. Generated binaries and private runtime data are excluded from Git.
@@ -391,11 +400,11 @@ The project file retains its historical filename. Passing tests is not proof tha
 
 ## Interface & Project Status
 
-**Current preview: [v8.0.0.1](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.1).**
-Fresh checks for this release passed 4,984 backend regression assertions, 276
-network workflow assertions, 375 localization checks and 163 GPU metadata/service
-assertions. The Native AOT installer was rebuilt as 8.0.0.1. See the
-[release notes and checksum](docs/release-8.0.0.1.md). It remains unsigned and
+**Current preview: [v8.0.0.2](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.2).**
+Checks on 23 October passed 5,060 backend regression assertions, 387 localization
+checks and 46,591 native WinUI assertions. The new workspace covers 12 synthetic
+width/theme/text-scale combinations. See the
+[release notes and checksum](docs/release-8.0.0.2.md). The installer remains unsigned and
 does not claim completion of the outstanding physical/live acceptance tests.
 
 The simplified interface retains Disk Info/SMART, repair, existing tweak and
@@ -428,8 +437,8 @@ report-export checks**. Read-only Native AOT probes successfully read two NVMe
 SSDs and 27 ATA attributes from one USB drive. The USB drive's overall SMART
 health remained Unknown when the driver could not confirm it. These results do
 not certify every controller, Windows version, or system-changing operation.
-Application version is now **v8.0.0.1**. Earlier v8.0.0.0 dated builds and their
-verification history remain intact; their test results are not new v8.0.0.1 tests.
+Application version is now **v8.0.0.2**. Earlier builds and their
+verification history remain intact; their test results are not new v8.0.0.2 tests.
 
 The [28 September refresh build](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.0-build.20260928.2)
 includes neutral SMART report wording, the latest Light/Dark README previews,

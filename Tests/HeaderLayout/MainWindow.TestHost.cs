@@ -93,6 +93,7 @@ public sealed partial class MainWindow : Window
             await CheckDialogScrollingAsync();
             await CheckGpuUpdatesAsync();
             await CheckNetworkSettingsAsync();
+            await CheckDebloatWorkspaceAsync();
             File.AppendAllText(App.ResultPath, $"PASS: {_checks} native WinUI assertions, {_cases} layout cases, 8 flyouts. Minimum header contrast: {_minimumHeaderContrast:F2}:1; button contrast: {_minimumButtonContrast:F2}:1. No Windows settings changed.\n");
             Environment.ExitCode = 0;
         }

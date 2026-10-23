@@ -16,6 +16,12 @@ internal sealed class BuiltInAppsService : IToolActionService, IBuiltInAppsBacke
     private readonly OneDriveAppService _oneDrive = new();
     internal string? AuditPath => _auditPath;
 
+    public Task RecordVerifiedAsync(string id, bool restored)
+    {
+        DebloatRemovalHistory.Record(id, restored);
+        return Task.CompletedTask;
+    }
+
     public IReadOnlyList<ToolActionDefinition> GetActions() => [new(
         "BuiltInWindowsApps", "Apps / HIGH IMPACT", BuiltInAppsCatalog.Title,
         BuiltInAppsCatalog.Description, "Review apps", false, false,

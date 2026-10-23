@@ -19,6 +19,7 @@ internal interface IBuiltInAppsBackend
     Task RestoreAppAsync(BuiltInAppTarget target, IProgress<CatalogProgressUpdate>? progress);
     Task SavePlanAsync(bool restore, IReadOnlyList<BuiltInAppTarget> targets, IReadOnlyList<BuiltInAppPackage> packages);
     Task AppendResultAsync(string text);
+    Task RecordVerifiedAsync(string id, bool restored) => Task.CompletedTask;
 }
 
 // Pure orchestration, injected backend for tests. Every mutation is a member of
@@ -53,6 +54,7 @@ internal static class BuiltInAppsRemoval
             }
             else
             {
+                bool historyFailure = false;
                 progress?.Report(new(target.Id, "RUNNING", (restore ? "Restoring: " : "Removing: ") + target.Name));
                 try
                 {
@@ -73,6 +75,12 @@ internal static class BuiltInAppsRemoval
                             : restore
                             ? "A healthy app package could not be verified. Use this app's Microsoft Store button to complete recovery, then analyze again."
                             : "Package is still registered for this Windows account.");
+                    try { await backend.RecordVerifiedAsync(target.Id, restore); }
+                    catch (Exception exception)
+                    {
+                        historyFailure = true;
+                        throw new InvalidOperationException("App state was verified, but its removal/restore history could not be saved. No further apps will be changed: " + exception.Message, exception);
+                    }
                     removed++;
                     state = "COMPLETED";
                     detail = target.Kind == BuiltInAppKind.OneDriveDesktop
@@ -87,7 +95,7 @@ internal static class BuiltInAppsRemoval
                     state = "FAILED";
                     detail = $"{target.Name}: {exception.Message} (0x{exception.HResult:X8})";
                     // A timeout is NOT proof that Windows stopped a deployment.
-                    stop = exception is TimeoutException or PendingDeploymentException;
+                    stop = historyFailure || exception is TimeoutException or PendingDeploymentException;
                 }
             }
             report.Add(detail);

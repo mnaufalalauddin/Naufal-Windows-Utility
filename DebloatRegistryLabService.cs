@@ -163,6 +163,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
 
         private static void Apply(RegistryLab lab)
         {
+            if (lab.Definition.Id == "PaintAI") DebloatJournal.RequireNoGranularAi();
             // Capture the entire plan before the first write. A mid-operation
             // error must not turn an already-mutated value into a new baseline.
             foreach (RegistryLabSetting setting in lab.Settings) Capture(lab.Definition.Id, setting);
@@ -175,6 +176,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
 
         private static bool Restore(RegistryLab lab)
         {
+            if (lab.Definition.Id == "PaintAI") DebloatJournal.RequireNoGranularAi();
             using RegistryKey? backup = Registry.CurrentUser.OpenSubKey(
                 $@"{BackupRoot}\{lab.Definition.Id}",
                 writable: false);
@@ -284,6 +286,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
 
         private static void RestoreWindowsDefaults(RegistryLab lab)
         {
+            if (lab.Definition.Id == "PaintAI") DebloatJournal.RequireNoGranularAi();
             if (lab.Definition.Id == "StickyKeysHotkeysOff")
             {
                 string[] defaults = { "510", "62", "126" };

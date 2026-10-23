@@ -8,7 +8,7 @@
     <AssemblyTitle>Naufal Windows Utility</AssemblyTitle>
     <Product>Naufal Windows Utility</Product>
     <Description>Open-source Windows system maintenance, troubleshooting, optimization and gaming utility.</Description>
-    <Version>8.0.0.1</Version>
+    <Version>8.0.0.2</Version>
     <InformationalVersion>$(Version)</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <AssemblyVersion>$(Version)</AssemblyVersion>

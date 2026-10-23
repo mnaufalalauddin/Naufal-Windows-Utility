@@ -1,6 +1,6 @@
 # Naufal Windows Utility — Changelog
 
-Development history from **30 August 2026** through **20 October 2026**.
+Development history from **30 August 2026** through **23 October 2026**.
 
 **Original history snapshot:** 12 September 2026, 00:39:41 WIB (Asia/Jakarta, UTC+07:00).
 Later development entries are appended below with their own dates.
@@ -21,6 +21,30 @@ mutation, complete visual validation, or full behavioral parity.
 Historical report filenames identify the records used when this history was
 assembled. Reports not included in this repository are shown as plain references,
 not download links; private backups and raw machine evidence are not published.
+
+## 23 October 2026 — v8.0.0.2 De-bloat Workspace Preview
+
+- Added six inline panels under Advanced Windows Tweaks: individual AI controls,
+  desktop/OEM apps, Startup Apps Manager, per-app background controls, reinstalled
+  app detection, and provisioned apps for new Windows accounts.
+- Preserved the combined Windows AI option, with mutual snapshot-ownership guards.
+  New registry operations preserve typed original values and reject external drift.
+- App history is recorded only after fresh exact-family verification. Intentional
+  restores are not classified as reinstallation; no automatic uninstall is added.
+- Provisioning uses exact approved identities, durable pre-operation logs and
+  read-back verification. Current-account removal remains a separate workflow.
+- Added synthetic transaction, recovery, history and provisioning failure tests,
+  plus a mutation-free WinUI layout test for long, scrollable inventory cards.
+- Version advanced to 8.0.0.2 for a separate Native AOT x64 installer and GitHub
+  pre-release. Previous release assets and tags are preserved.
+- Verification: 5,060 backend assertions, 387 localization assertions and 46,591
+  native WinUI assertions passed on 23 October. The new workspace covers 12
+  synthetic width/theme/text-scale combinations, including scrolling at 200% text.
+- Scope limits and pending live VM acceptance are documented in
+  [De-bloat workspace](docs/debloat-workspace.md). No live host uninstall, startup
+  edit, AI/background policy change or deprovisioning was used for these tests.
+- Installer remains unsigned; installation/upgrade/uninstall acceptance and the
+  existing hardware/online Windows Update limitations are not declared complete.
 
 ## 20 October 2026 — v8.0.0.1 Network & Repair Preview
 

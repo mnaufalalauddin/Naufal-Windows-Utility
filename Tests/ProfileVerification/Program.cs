@@ -101,6 +101,8 @@ void Assert(bool value, string name)
     passed++;
 }
 SecurityStorageAuditTests.Run(Assert);
+DebloatWorkspaceTests.Run(Assert);
+await DebloatWorkspaceTests.ProvisioningAsync(Assert);
 LegacyMigrationAuditTests.Run(Assert);
 ProfileRegistryValue Set(uint value) => new(true, true, value);
 ProfileRegistryValue Absent() => new(true, false, 0);

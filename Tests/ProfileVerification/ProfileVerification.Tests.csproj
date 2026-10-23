@@ -8,6 +8,9 @@
     <DefineConstants>$(DefineConstants);PROFILE_LIVE_AUDIT</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="..\..\DebloatWorkspaceModels.cs" Link="DebloatWorkspaceModels.cs" />
+    <Compile Include="..\..\DebloatWorkspaceStorage.cs" Link="DebloatWorkspaceStorage.cs" />
+    <Compile Include="..\..\ProvisionedAppsOperations.cs" Link="ProvisionedAppsOperations.cs" />
     <Compile Include="../RetiredModules/StorageServicing.cs" Link="StorageServicing.cs" />
     <Compile Include="../RetiredModules/OfflineImageModels.cs" Link="OfflineImageModels.cs" />
     <Compile Include="../RetiredModules/ResourceMeasurement.cs" Link="ResourceMeasurement.cs" />
