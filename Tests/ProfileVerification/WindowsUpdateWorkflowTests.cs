@@ -53,6 +53,40 @@ internal static class WindowsUpdateWorkflowTests
             assert(!result.Success && f.Backups == 3, "Failed restart cannot produce completed repair even after cache reset");
             assert(f.States["cryptsvc"] == "Running" && f.States["wuauserv"] == "Running", "Recovery continues for other services after one failed restart");
         }
+        using (var f = new Fixture { FailAction = "stop", FailService = "cryptsvc", FailureExitCode = 1051 })
+        {
+            var result = await f.Run();
+            assert(f.Backups == 2 && f.CacheFiles == 1, "CryptSvc 1051 still permits guarded download/database reset while leaving catroot2 intact");
+            assert(!result.Success && result.PartialRepair && result.WarningCount > 0 && result.Report.Contains("REPAIR PARTIAL"), "Skipped catalog reset never claims full repair success");
+            assert(f.Progress.Any(p => p.StageIndex == 4 && p.Status == "SKIPPED"), "Blocked catalog stage is explicitly skipped, not passed");
+            assert(f.States.Values.All(s => s == "Running"), "Limited repair verifies all required services running");
+            assert(f.Commands.Count(c => c == "stop cryptsvc") == 1, "Dependent-service refusal is not retried for every cache");
+            assert(f.Commands.All(c => c.Split(' ')[1] is "BITS" or "wuauserv" or "cryptsvc"), "No dependent or security service is stopped to work around 1051");
+        }
+        foreach (int code in new[] { 5, 1060, 1051 })
+        using (var f = new Fixture { FailAction = "stop", FailService = "cryptsvc", FailureExitCode = code, FailureTimedOut = code == 1051 })
+        {
+            var result = await f.Run();
+            assert(!result.Success && !result.PartialRepair && f.Backups == 0, "Only confirmed non-timeout 1051 can authorize limited repair: " + code);
+            assert(f.States.Values.All(s => s == "Running"), "Rejected catalog stop recovers download services: " + code);
+        }
+        using (var f = new Fixture { FailAction = "stop", FailService = "cryptsvc", FailureExitCode = 1051, FailureState = "Unknown" })
+        {
+            var result = await f.Run();
+            assert(!result.Success && !result.PartialRepair && f.Backups == 0, "1051 with unreadable runtime cannot authorize limited repair");
+        }
+        using (var f = new Fixture { FailAction = "stop", FailService = "cryptsvc", FailureExitCode = 1051 })
+        {
+            f.OnStage = stage => { if (stage == 6) f.States["cryptsvc"] = "Unknown"; };
+            var result = await f.Run();
+            assert(!result.Success && !result.PartialRepair && f.Backups == 2, "Failed final service verification overrides partial-repair outcome");
+        }
+        using (var f = new Fixture { FailAction = "stop", FailService = "cryptsvc", FailureExitCode = 1051 })
+        {
+            f.OnStage = stage => { if (stage == 3) f.States["wuauserv"] = "Running"; };
+            var result = await f.Run();
+            assert(result.PartialRepair && f.Commands.Count(c => c == "stop wuauserv") == 2, "Limited repair still rechecks and stops download services before cache rename");
+        }
         foreach (string state in new[] { "Unknown", "NotFound" })
         using (var f = new Fixture())
         {
@@ -115,6 +149,8 @@ internal static class WindowsUpdateWorkflowTests
         internal bool Admin = true;
         internal string? FailAction, FailService;
         internal string? FailureState;
+        internal int FailureExitCode = 5;
+        internal bool FailureTimedOut;
         internal Action<int>? OnStage;
         internal Action? OnPoll;
         internal int Backups => Directory.GetDirectories(Root, "*.bak-wpt-*", SearchOption.AllDirectories).Length;
@@ -140,7 +176,7 @@ internal static class WindowsUpdateWorkflowTests
                     if (action == FailAction && (FailService is null || service.Equals(FailService, StringComparison.OrdinalIgnoreCase)))
                     {
                         if (FailureState is not null) States[service] = FailureState;
-                        return Task.FromResult(new NativeCommandResult(5, "", "fixture access denied", false, TimeSpan.Zero));
+                        return Task.FromResult(new NativeCommandResult(FailureExitCode, "", "fixture access denied", FailureTimedOut, TimeSpan.Zero));
                     }
                     if (action == "config") Starts[service] = args[3] == "auto" ? 2 : 3;
                     else States[service] = action == "start" ? "Running" : "Stopped";

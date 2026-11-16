@@ -46,6 +46,14 @@ public sealed partial class MainWindow : Window
         RootLayout.Loaded -= Run;
         try
         {
+            if (Environment.GetCommandLineArgs().Contains("--small-window-only"))
+            {
+                await CheckSmallWindowsAsync();
+                await CheckDialogScrollingAsync();
+                await CheckDebloatWorkspaceAsync();
+                File.AppendAllText(App.ResultPath, $"PASS: {_checks} focused small-window/workspace assertions. No Windows settings changed.\n");
+                return;
+            }
             _case = $"saved startup scale={UiDisplaySettings.TextScalePercent}";
             await Task.Delay(50);
             RootLayout.UpdateLayout();
@@ -94,6 +102,7 @@ public sealed partial class MainWindow : Window
             await CheckGpuUpdatesAsync();
             await CheckNetworkSettingsAsync();
             await CheckDebloatWorkspaceAsync();
+            await CheckSmallWindowsAsync();
             File.AppendAllText(App.ResultPath, $"PASS: {_checks} native WinUI assertions, {_cases} layout cases, 8 flyouts. Minimum header contrast: {_minimumHeaderContrast:F2}:1; button contrast: {_minimumButtonContrast:F2}:1. No Windows settings changed.\n");
             Environment.ExitCode = 0;
         }
@@ -107,6 +116,24 @@ public sealed partial class MainWindow : Window
 
     private async Task CheckNavigationAsync()
     {
+        _case = "page switch resets shared scroll offset";
+        var tallAdvanced = new Border { Height = 2400 };
+        var tallRepair = new Border { Height = 2400 };
+        AdvancedPage.Children.Add(tallAdvanced); RepairPage.Children.Add(tallRepair);
+        try
+        {
+            AppWindow.Resize(new SizeInt32(1024, 550));
+            UiDisplaySettings.SetTextScale(100);
+            MainNavigation.SelectedItem = MainNavigation.MenuItems[4];
+            await Task.Delay(100);
+            MainPageScrollViewer.ChangeView(null, 400, null, true);
+            await Task.Delay(60);
+            Check(MainPageScrollViewer.VerticalOffset > 100, "fixture starts scrolled down in Advanced");
+            MainNavigation.SelectedItem = MainNavigation.MenuItems[1];
+            await Task.Delay(100);
+            Check(MainPageScrollViewer.VerticalOffset < 1, "Repair opens at top despite both pages being scrollable");
+        }
+        finally { AdvancedPage.Children.Remove(tallAdvanced); RepairPage.Children.Remove(tallRepair); }
         var pages = new FrameworkElement[] { HomePage, RepairPage, InfoPage, SecurityPage, AdvancedPage, NetworkPage };
         Check(MainNavigation.MenuItems.Count == 6, "six navigation pages including Network Settings Manager");
         foreach (int width in new[] { 1920, 1280, 800, 480 })

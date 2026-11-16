@@ -26,12 +26,16 @@ internal sealed class DebloatWorkspaceService : IProvisionedAppsBackend
             throw new InvalidOperationException("Organization management is present or unresolved. Use the policy owner's controls; nothing was changed.");
     }
 
-    internal string AiStatus(AiControl control)
+    internal AiWorkspaceState ReadAiState(AiControl control, string? management)
     {
         bool disabled = control.Edits.All(e => DebloatTransaction.Equal(_registry.Read(e.Target), e.Value));
-        string state = disabled ? "Disable policy configured" : "Disable policy not fully configured";
-        return state + (HasSnapshot("ai-" + control.Id) ? " · Original snapshot available" : " · No utility snapshot");
+        using var combined = Registry.CurrentUser.OpenSubKey(@"Software\Naufal Windows Tech\Powertoys\Backups\WindowsAI");
+        using var paint = Registry.CurrentUser.OpenSubKey(@"Software\Naufal Windows Tech\Powertoys\Backups\DebloatRegistryLab\PaintAI");
+        return WorkspaceAvailability.Ai(disabled, HasSnapshot("ai-" + control.Id), combined is not null || control.Id == "Paint" && paint is not null,
+            control.Edits.Any(e => _registry.Read(e.Target) is not null), AiUnavailable(control), management);
     }
+    internal static string? PolicyOwnerBlock()
+    { try { RequireLocalPolicyOwner(); return null; } catch (Exception exception) { return exception.Message; } }
     internal static string? AiUnavailable(AiControl control)
     {
         using var root = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
@@ -88,36 +92,19 @@ internal sealed class DebloatWorkspaceService : IProvisionedAppsBackend
         }
         return entries.DistinctBy(e => (e.Scope, e.Name, e.UninstallCommand)).OrderBy(e => e.Name, StringComparer.CurrentCultureIgnoreCase).ToArray();
     }
-    internal static string[] ParseCommand(string command)
+    private static string LocalExecutable(string command) => RegisteredAppCommand.Parse(command).Executable;
+    internal static string? UninstallerUnavailable(DesktopAppEntry app)
     {
-        if (string.IsNullOrWhiteSpace(command)) return [];
-        nint argv = CommandLineToArgvW(command, out int count);
-        if (argv == 0) throw new InvalidOperationException("Unable to parse registered command.");
-        try { return Enumerable.Range(0, count).Select(i => Marshal.PtrToStringUni(Marshal.ReadIntPtr(argv, i * IntPtr.Size)) ?? "").ToArray(); }
-        finally { LocalFree(argv); }
-    }
-    private static string LocalExecutable(string command)
-    {
-        string path = Environment.ExpandEnvironmentVariables(ParseCommand(command).FirstOrDefault() ?? "");
-        if (string.Equals(path, "msiexec.exe", StringComparison.OrdinalIgnoreCase) || string.Equals(path, "msiexec", StringComparison.OrdinalIgnoreCase))
-            path = Path.Combine(Environment.SystemDirectory, "msiexec.exe");
-        if (!Path.IsPathFullyQualified(path) || path.StartsWith(@"\\", StringComparison.Ordinal) ||
-            !path.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) || !File.Exists(path))
-            throw new InvalidOperationException("No unambiguous local executable is registered. Use Windows Installed apps.");
-        return path;
+        try { _ = RegisteredAppCommand.Uninstall(app); return null; }
+        catch (Exception exception) { return exception.Message; }
     }
     internal static void LaunchUninstaller(DesktopAppEntry selected)
     {
         var fresh = ReadDesktop().SingleOrDefault(e => e.Identity == selected.Identity);
         if (fresh != selected) throw new InvalidOperationException("App registration changed. Reload before uninstalling.");
-        if (fresh.SystemComponent) throw new InvalidOperationException("System component: use Windows or the vendor's servicing tools.");
-        string executable = LocalExecutable(fresh.UninstallCommand);
-        if (new[] { "cmd", "powershell", "pwsh", "wscript", "cscript", "rundll32", "regsvr32", "mshta" }
-            .Contains(Path.GetFileNameWithoutExtension(executable), StringComparer.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Script-host uninstallers are not launched here. Use Windows Installed apps.");
-        var start = new ProcessStartInfo(executable) { UseShellExecute = true };
-        foreach (string argument in ParseCommand(fresh.UninstallCommand).Skip(1)) start.ArgumentList.Add(argument);
-        using var process = Process.Start(start) ?? throw new InvalidOperationException("Windows did not launch the uninstaller.");
+        var plan = RegisteredAppCommand.Uninstall(fresh);
+        if (plan.NvidiaModule is not null) GpuDriverService.VerifyNvidiaUninstallerSignature(plan.NvidiaModule);
+        using var process = Process.Start(plan.StartInfo()) ?? throw new InvalidOperationException("Windows did not launch the uninstaller.");
         // Do not kill vendor installers, add silent switches, or claim uninstall success.
     }
 
@@ -144,8 +131,7 @@ internal sealed class DebloatWorkspaceService : IProvisionedAppsBackend
                 using var approved = root.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\" +
                     (view == RegistryView.Registry32 ? "Run32" : "Run"));
                 object? approval = approved?.GetValue(name);
-                if (approval is not null && (approval is not byte[] bytes || bytes.Length != 12 || bytes[0] != 2))
-                    blocked = "Windows startup approval is disabled or unknown. Manage in Windows Settings.";
+                blocked ??= WorkspaceAvailability.StartupApprovalBlock(approval);
                 string publisher = "Not verified";
                 try { publisher = FileVersionInfo.GetVersionInfo(LocalExecutable(command)).CompanyName ?? "Not reported"; } catch { }
                 string id = "startup-" + DebloatJournal.Key($"{hive}|{view}|{name}");
@@ -262,7 +248,4 @@ internal sealed class DebloatWorkspaceService : IProvisionedAppsBackend
         ["/English", "/Online", "/Remove-ProvisionedAppxPackage", "/PackageName:" + exactPackageName, "/NoRestart"], TimeSpan.FromMinutes(8));
     Task IProvisionedAppsBackend.AppendAsync(string log, string text) => File.AppendAllTextAsync(log, "\n" + text);
 
-    [DllImport("shell32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern nint CommandLineToArgvW(string command, out int count);
-    [DllImport("kernel32.dll")] private static extern nint LocalFree(nint memory);
 }

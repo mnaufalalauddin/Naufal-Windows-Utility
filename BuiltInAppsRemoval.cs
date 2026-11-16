@@ -9,6 +9,7 @@ internal sealed record BuiltInAppUpdate(string Id, string State, string Detail, 
 internal sealed record BuiltInAppsResult(int Succeeded, int Unavailable, int Failed, int NotStarted, string Report)
 {
     internal bool Success => Failed == 0 && NotStarted == 0;
+    internal string TaskState => !Success ? "FAILED" : Succeeded > 0 ? "COMPLETED" : "UNAVAILABLE";
 }
 
 internal interface IBuiltInAppsBackend

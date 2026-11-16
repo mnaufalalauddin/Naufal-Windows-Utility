@@ -31,6 +31,8 @@ internal static class DebloatWorkspaceTests
         Throws(() => DebloatTransaction.Change("other", desired, true, registry, journal), "snapshot operation identity validated");
         Throws(() => DebloatTransaction.Change("test", [], false, registry, journal), "empty plan rejected");
         Throws(() => DebloatTransaction.Change("test", [desired[0], desired[0]], false, registry, journal), "duplicate target rejected");
+        Throws(() => DebloatTransaction.Change("test", [desired[0], desired[0] with { Target = a with { Path = a.Path.ToLowerInvariant(), Name = "a" } }], false, registry, journal),
+            "registry target aliases with different case are duplicates");
         registry = new FakeRegistry { FailAt = 2 };
         journal = new FakeJournal();
         Throws(() => DebloatTransaction.Change("test", desired, false, registry, journal), "partial failure reported");
@@ -41,6 +43,16 @@ internal static class DebloatWorkspaceTests
         registry = new FakeRegistry(); journal = new FakeJournal { FailSave = true };
         Throws(() => DebloatTransaction.Change("test", desired, false, registry, journal), "journal persistence failure aborts");
         check(registry.Writes == 0, "no mutation before durable journal");
+        registry = new FakeRegistry(); journal = new FakeJournal();
+        Throws(() => DebloatTransaction.Change("bad-value", [desired[0], desired[1] with { Value = new(RegistryValueKind.DWord, ["invalid"]) }], false, registry, journal),
+            "all planned registry payloads validated before first write");
+        check(registry.Writes == 0 && journal.Snapshot is null, "invalid later value cannot partially apply or create recovery record");
+        Throws(() => DebloatRegistry.Decode(new(RegistryValueKind.MultiString, null!)), "null multi-string payload rejected");
+        Throws(() => DebloatRegistry.Decode(new(RegistryValueKind.MultiString, [null!])), "null multi-string element rejected");
+        registry = new FakeRegistry();
+        journal = new FakeJournal { AfterSave = () => registry.Values[b] = DebloatValue.Dword(9) };
+        Throws(() => DebloatTransaction.Change("drift-during-save", desired, false, registry, journal), "drift during durable save is detected before mutation");
+        check(registry.Writes == 0 && registry.Values[b]!.Data.Single() == "9", "external change is preserved after journal preparation");
         registry = new FakeRegistry { IgnoreWrites = true }; journal = new FakeJournal();
         Throws(() => DebloatTransaction.Change("test", desired, false, registry, journal), "readback mismatch rejected");
         check(journal.Snapshot is not null, "readback mismatch retains recovery");
@@ -151,9 +163,10 @@ internal static class DebloatWorkspaceTests
     {
         internal DebloatSnapshot? Snapshot;
         internal bool FailSave;
+        internal Action? AfterSave;
         public DebloatSnapshot? Load(string id) => Snapshot;
         public void Save(DebloatSnapshot snapshot)
-        { if (FailSave) throw new IOException("Injected persistence failure"); Snapshot = snapshot; }
+        { if (FailSave) throw new IOException("Injected persistence failure"); Snapshot = snapshot; AfterSave?.Invoke(); }
         public void Delete(string id) => Snapshot = null;
     }
 }

@@ -2,6 +2,7 @@ using Naufal_Windows_Tech_s_Powertoys;
 
 try
 {
+if (args.Contains("--workspace-command-read-probe")) { WorkspaceActionTests.ReadOnlyProbe(); return; }
 if (args.Contains("--repair-storage-regression"))
 {
     int repair = 0, storage = 0;
@@ -102,6 +103,7 @@ void Assert(bool value, string name)
 }
 SecurityStorageAuditTests.Run(Assert);
 DebloatWorkspaceTests.Run(Assert);
+WorkspaceActionTests.Run(Assert);
 await DebloatWorkspaceTests.ProvisioningAsync(Assert);
 LegacyMigrationAuditTests.Run(Assert);
 ProfileRegistryValue Set(uint value) => new(true, true, value);

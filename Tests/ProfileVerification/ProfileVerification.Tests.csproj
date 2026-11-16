@@ -9,6 +9,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\..\DebloatWorkspaceModels.cs" Link="DebloatWorkspaceModels.cs" />
+    <Compile Include="..\..\RegisteredAppCommand.cs" Link="RegisteredAppCommand.cs" />
+    <Compile Include="..\..\ScopedProgress.cs" Link="ScopedProgress.cs" />
     <Compile Include="..\..\DebloatWorkspaceStorage.cs" Link="DebloatWorkspaceStorage.cs" />
     <Compile Include="..\..\ProvisionedAppsOperations.cs" Link="ProvisionedAppsOperations.cs" />
     <Compile Include="../RetiredModules/StorageServicing.cs" Link="StorageServicing.cs" />

@@ -24,6 +24,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\..\DebloatWorkspaceView.cs" Link="DebloatWorkspaceView.cs" />
+    <Compile Include="..\..\ResponsiveToolLayout.cs" Link="ResponsiveToolLayout.cs" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2705" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.4.0" />
     <ApplicationDefinition Include="..\..\App.xaml" Link="App.xaml" />

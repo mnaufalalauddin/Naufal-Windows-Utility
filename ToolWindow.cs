@@ -119,8 +119,11 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 FontSize = 21,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 18, 28, 40)),
-                TextWrapping = TextWrapping.Wrap
+                TextWrapping = TextWrapping.NoWrap,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                MaxLines = 1
             };
+            ToolTipService.SetToolTip(_headingText, title);
             Border headingBorder = new()
             {
                 Background = new SolidColorBrush(Color.FromArgb(255, 255, 255, 255)),
@@ -138,7 +141,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
 
             ContentPresenter presenter = new()
             {
-                Content = toolContent,
+                Content = ResponsiveToolLayout.Body(toolContent),
                 HorizontalContentAlignment = HorizontalAlignment.Stretch,
                 VerticalContentAlignment = VerticalAlignment.Stretch,
                 Margin = new Thickness(18, 14, 18, 14)
@@ -168,15 +171,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
             };
             CloseButton.Click += (_, _) => CloseWithResult(ToolWindowResult.Closed);
 
-            StackPanel footerButtons = new()
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 8,
-                HorizontalAlignment = HorizontalAlignment.Right
-            };
-            footerButtons.Children.Add(SecondaryButton);
-            footerButtons.Children.Add(PrimaryButton);
-            footerButtons.Children.Add(CloseButton);
+            Grid footerButtons = ResponsiveToolLayout.Footer(SecondaryButton, PrimaryButton, CloseButton);
 
             Border footerBorder = new()
             {
@@ -218,6 +213,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
             Title = translated;
             AppWindow.Title = translated;
             _headingText.Text = _canonicalTitle;
+            ToolTipService.SetToolTip(_headingText, _canonicalTitle);
         }
 
         private void ConfigureNativeWindow(
@@ -309,14 +305,18 @@ namespace Naufal_Windows_Tech_s_Powertoys
             Button button = new()
             {
                 Content = text ?? string.Empty,
-                MinWidth = 120,
-                Height = 34,
+                MinWidth = 0,
+                MinHeight = 36,
+                Padding = new Thickness(10, 6, 10, 6),
                 Visibility = string.IsNullOrWhiteSpace(text)
                     ? Visibility.Collapsed
                     : Visibility.Visible,
-                HorizontalAlignment = HorizontalAlignment.Right,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Center,
                 CornerRadius = new CornerRadius(0)
             };
+
+            button.ContentTemplate = FooterLabelTemplate();
 
             if (isPrimary)
             {
@@ -327,6 +327,9 @@ namespace Naufal_Windows_Tech_s_Powertoys
 
             return button;
         }
+
+        private static DataTemplate FooterLabelTemplate() => (DataTemplate)Microsoft.UI.Xaml.Markup.XamlReader.Load(
+            "<DataTemplate xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'><TextBlock Text='{Binding}' TextWrapping='Wrap' TextAlignment='Center'/></DataTemplate>");
 
         private void CloseWithResult(ToolWindowResult result)
         {
@@ -386,14 +389,14 @@ namespace Naufal_Windows_Tech_s_Powertoys
         {
             return Math.Min(
                 _maximumPracticalWidth,
-                Math.Max(360, ScaleWindowDimension(_minimumWidth)));
+                Math.Max(360, _minimumWidth));
         }
 
         private int GetScaledMinimumHeight()
         {
             return Math.Min(
                 _maximumPracticalHeight,
-                Math.Max(260, ScaleWindowDimension(_minimumHeight)));
+                Math.Max(260, _minimumHeight));
         }
 
         private static int ScaleWindowDimension(int value)

@@ -14,7 +14,8 @@ namespace Naufal_Windows_Tech_s_Powertoys
     internal readonly record struct MaintenanceOperationResult(
         bool Success,
         int WarningCount,
-        string Report);
+        string Report,
+        bool PartialRepair = false);
 
     // All machine access is supplied together so the complete repair workflow can
     // be regression-tested without touching the host's services or update cache.
@@ -33,6 +34,8 @@ namespace Naufal_Windows_Tech_s_Powertoys
         // stopping protected update-coordination services a prerequisite or alter
         // their configuration, permissions, process, or scheduled tasks.
         private static readonly string[] RepairServices = { "BITS", "wuauserv", "cryptsvc" };
+        private static readonly string[] DownloadServices = { "BITS", "wuauserv" };
+        private sealed class ActiveCatalogDependentsException : InvalidOperationException { }
 
         private static readonly NativeCommandRunner CommandRunner = new();
         private readonly UpdateRepairOperations _operations;
@@ -72,6 +75,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
             report.AppendLine(new string('=', 74));
             report.AppendLine("Scope: BITS, wuauserv and cryptsvc; DataStore, Download and catroot2 caches.");
             report.AppendLine("UsoSvc/DoSvc are left under Windows control. No service ACL, ownership, network, firewall or proxy reset is performed.");
+            report.AppendLine("If cryptsvc rejects stop with error 1051 and remains Running, only SoftwareDistribution is reset. catroot2 and dependent services are left untouched; the result is PARTIAL, not a full repair.");
 
             try
             {
@@ -86,18 +90,26 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 }
 
                 AddStage(report, progress, 2, 6, "Stop Windows Update services");
-                await EnsureServicesStoppedAsync(report, warnings, recoveryServices, cancellationToken);
+                bool catalogAvailable = await EnsureServicesStoppedAsync(report, warnings, recoveryServices, cancellationToken,
+                    allowCatalogSkip: true);
 
                 AddStage(report, progress, 3, 6, "Reset SoftwareDistribution cache");
                 foreach (string cache in new[] { @"SoftwareDistribution\DataStore", @"SoftwareDistribution\Download" })
                     cacheBackups.Add(await UpdateCacheReset.RunAsync(windows, cache,
-                        token => EnsureServicesStoppedAsync(report, warnings, recoveryServices, token),
+                        token => EnsureServicesStoppedAsync(report, warnings, recoveryServices, token, includeCatalog: catalogAvailable),
                         line => report.AppendLine(line), cancellationToken));
 
                 AddStage(report, progress, 4, 6, "Reset catroot2 cache");
-                cacheBackups.Add(await UpdateCacheReset.RunAsync(windows, @"System32\catroot2",
-                    token => EnsureServicesStoppedAsync(report, warnings, recoveryServices, token),
-                    line => report.AppendLine(line), cancellationToken));
+                if (catalogAvailable)
+                    cacheBackups.Add(await UpdateCacheReset.RunAsync(windows, @"System32\catroot2",
+                        token => EnsureServicesStoppedAsync(report, warnings, recoveryServices, token),
+                        line => report.AppendLine(line), cancellationToken));
+                else
+                {
+                    const string skipped = "catroot2 was NOT reset: cryptsvc has running dependent services (1051). No dependent services were stopped.";
+                    report.AppendLine("SKIPPED: " + skipped);
+                    stages.Skip(skipped);
+                }
 
                 AddStage(report, progress, 5, 6, "Restart Windows Update services");
                 foreach (string serviceName in new[] { "cryptsvc", "BITS", "wuauserv" })
@@ -138,11 +150,13 @@ namespace Naufal_Windows_Tech_s_Powertoys
                     report.AppendLine("Verified preserved backup: " + cache.Backup);
                 }
 
-                report.AppendLine("Local cache/service checks passed. Open Settings > Windows Update > Check for updates and retry the download.");
+                report.AppendLine(catalogAvailable
+                    ? "Local cache/service checks passed. Open Settings > Windows Update > Check for updates and retry the download."
+                    : "SoftwareDistribution reset and service read-back verified; catroot2 remains unchanged. Open Settings > Windows Update > Check for updates and retry the download. Full repair is NOT verified.");
                 report.AppendLine("Download completion was not tested. Windows will rebuild its cache; this can take time. Backups were retained, not deleted.");
-                AppendFinalResult(report, true, warnings, null);
+                AppendFinalResult(report, catalogAvailable, warnings, null, partial: !catalogAvailable);
                 stages.Complete(true);
-                return new MaintenanceOperationResult(true, warnings.Count, report.ToString().TrimEnd());
+                return new MaintenanceOperationResult(catalogAvailable, warnings.Count, report.ToString().TrimEnd(), PartialRepair: !catalogAvailable);
             }
             catch (Exception exception)
             {
@@ -205,7 +219,8 @@ namespace Naufal_Windows_Tech_s_Powertoys
             bool running,
             StringBuilder report,
             List<string> warnings,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool allowRunningDependents = false)
         {
             string current = await QueryServiceStateAsync(serviceName, cancellationToken);
             string target = running ? "Running" : "Stopped";
@@ -239,32 +254,53 @@ namespace Naufal_Windows_Tech_s_Powertoys
             }
             while (wait.Elapsed < TimeSpan.FromSeconds(30));
 
+            // A narrowly recognized refusal is not permission to stop arbitrary
+            // dependents (for example security/application-identity services).
+            if (allowRunningDependents && !running && serviceName == "cryptsvc" &&
+                !result.TimedOut && result.ExitCode == 1051 && current == "Running")
+                throw new ActiveCatalogDependentsException();
+
             string warning = $"Service {serviceName} did not reach {target} (sc.exe exit {result.ExitCode}; current: {current}).";
             warnings.Add(warning);
             report.AppendLine($"WARNING: {warning}");
             return false;
         }
 
-        private async Task EnsureServicesStoppedAsync(StringBuilder report, List<string> warnings, HashSet<string> recoveryServices, CancellationToken token)
+        private async Task<bool> EnsureServicesStoppedAsync(StringBuilder report, List<string> warnings, HashSet<string> recoveryServices, CancellationToken token,
+            bool includeCatalog = true, bool allowCatalogSkip = false)
         {
-            string[] services = { "BITS", "wuauserv", "cryptsvc" };
+            string[] services = includeCatalog ? RepairServices : DownloadServices;
+            bool catalogBlocked = false;
             foreach (string name in services)
             {
                 string before = await QueryServiceStateAsync(name, token);
                 if (before is "Unknown" or "NotFound")
                     throw new InvalidOperationException($"Cannot read required service {name}: {before}. No cache rename will be attempted.");
                 if (before != "Stopped") recoveryServices.Add(name);
-                if (!await SetServiceStateAsync(name, false, report, warnings, token))
-                    throw new InvalidOperationException($"Cache reset was not started: {name} could not be stopped.");
+                try
+                {
+                    if (!await SetServiceStateAsync(name, false, report, warnings, token,
+                        allowRunningDependents: allowCatalogSkip && name == "cryptsvc"))
+                        throw new InvalidOperationException($"Cache reset was not started: {name} could not be stopped.");
+                }
+                catch (ActiveCatalogDependentsException)
+                {
+                    catalogBlocked = true;
+                    const string warning = "cryptsvc stop rejected with error 1051; still Running. Continuing with SoftwareDistribution only. catroot2 and all dependent services remain untouched.";
+                    warnings.Add(warning);
+                    report.AppendLine("WARNING: " + warning);
+                }
             }
             // A service can restart while a later service is being stopped.
             // Never rename a cache based only on an earlier sc.exe exit code.
             foreach (string name in services)
             {
+                if (catalogBlocked && name == "cryptsvc") continue;
                 string state = await QueryServiceStateAsync(name, token);
                 if (state != "Stopped")
                     throw new InvalidOperationException($"Cache reset was not started: {name} changed to {state}. Let active updates finish, then retry.");
             }
+            return includeCatalog && !catalogBlocked;
         }
 
         private async Task<string> QueryServiceStateAsync(string serviceName, CancellationToken token)
@@ -423,11 +459,12 @@ namespace Naufal_Windows_Tech_s_Powertoys
             StringBuilder report,
             bool success,
             IReadOnlyCollection<string> warnings,
-            string? error)
+            string? error,
+            bool partial = false)
         {
             report.AppendLine();
             report.AppendLine(new string('=', 74));
-            report.AppendLine(success ? "REPAIR COMPLETED" : "REPAIR FAILED");
+            report.AppendLine(partial ? "REPAIR PARTIAL — catroot2 was not reset" : success ? "REPAIR COMPLETED" : "REPAIR FAILED");
             report.AppendLine($"Warnings: {warnings.Count}");
             foreach (string warning in warnings)
             {

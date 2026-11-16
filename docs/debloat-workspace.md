@@ -6,6 +6,25 @@ change startup entries. Lists scroll vertically and action labels wrap.
 
 ## Available controls and boundaries
 
+### Local v8.0.0.3 corrections (not yet published)
+
+Action results and errors appear beside the clicked button. Already-configured
+AI policies and combined Windows AI/Paint AI snapshot ownership are shown before
+clicking; these guards are not bypassed. Startup approvals already disabled by
+Windows are explained and linked to Windows startup settings.
+
+Registered executable paths with spaces are resolved explicitly. NVIDIA's
+machine-wide InstallerCore uninstaller is a narrow exception to DLL-host blocking:
+the registered package identity, Windows host path, expected DLL path and NVIDIA
+Authenticode signature are required. Other arbitrary DLL exports remain blocked.
+Read-only resolution of local PhysX/DDU registrations passed, but no actual host
+uninstall was performed or claimed successful.
+
+Inventory height follows the window. Short tool windows gain body scrolling;
+footer buttons reflow and their labels wrap. Focused tests cover short windows,
+up to 200% text, last-action visibility and synthetic button invocation. This
+does not certify every physical display/DPI combination or live mutation.
+
 | Panel | Implemented behavior | Important boundary |
 | --- | --- | --- |
 | Individual Windows AI controls | Copilot current-account uninstall/Store recovery; separate disable/restore policies for Recall snapshots, Click to Do, Notepad AI and Paint AI | Not a promise of runtime effectiveness. Build/edition and applicable app versions are checked. Existing combined AI/Paint snapshots must be restored before using individual policies; the reverse is also enforced. Recall snapshot data is not backed up. |

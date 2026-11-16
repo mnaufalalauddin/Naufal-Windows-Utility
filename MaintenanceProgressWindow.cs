@@ -295,20 +295,22 @@ namespace Naufal_Windows_Tech_s_Powertoys
             bool success,
             int warningCount,
             string message,
-            string finalReport)
+            string finalReport,
+            bool partialRepair = false)
         {
             if (_closed || _completed)
             {
                 return;
             }
 
-            MaintenanceCompletion completion = MaintenanceCompletion.Evaluate(success, warningCount, _stageStatuses);
-            if (success && !completion.Success)
+            MaintenanceCompletion completion = MaintenanceCompletion.Evaluate(success || partialRepair, warningCount, _stageStatuses);
+            if ((success || partialRepair) && !completion.Success)
                 message = "The operation reported completion, but one or more stages failed or were not verified. Review the stage results and log.";
-            success = completion.Success;
+            partialRepair = partialRepair && completion.Success;
+            success = completion.Success && !partialRepair;
             warningCount = completion.WarningCount;
             _completed = true;
-            _succeeded = success;
+            _succeeded = success || partialRepair;
             _warningCount = warningCount;
             _stopwatch.Stop();
             _elapsedTimer.Stop();
@@ -321,9 +323,9 @@ namespace Naufal_Windows_Tech_s_Powertoys
             _progressBar.IsIndeterminate = false;
             _progressBar.Value = 100;
             _progressBar.Foreground = success ? GetWorkingBrush() : GetFailureBrush();
-            _percentText.Text = success ? "100%" : "Finished with errors";
+            _percentText.Text = partialRepair ? "Limited scope only" : success ? "100%" : "Finished with errors";
             _percentText.Foreground = success ? GetWorkingBrush() : GetFailureBrush();
-            _currentStageText.Text = success ? "Completed" : "Failed";
+            _currentStageText.Text = partialRepair ? "Partial repair" : success ? "Completed" : "Failed";
             _stageCountText.Text = success
                 ? $"{_stages.Count} of {_stages.Count}"
                 : $"{Math.Max(0, _activeStage)} of {_stages.Count}";
@@ -331,8 +333,13 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 ? $"{message} Warnings: {warningCount}."
                 : message;
             _resultText.Foreground = GetStatusBrush(
-                success ? warningCount > 0 ? "WARNING" : "PASS" : "FAILED");
-            _window.SetTitle(success
+                partialRepair ? "WARNING" : success ? warningCount > 0 ? "WARNING" : "PASS" : "FAILED");
+            if (partialRepair)
+            {
+                _progressBar.Foreground = GetStatusBrush("WARNING");
+                _percentText.Foreground = GetStatusBrush("WARNING");
+            }
+            _window.SetTitle(partialRepair ? $"Partial {_operationTitle}" : success
                 ? $"Completed {_operationTitle}"
                 : $"Failed {_operationTitle}");
 

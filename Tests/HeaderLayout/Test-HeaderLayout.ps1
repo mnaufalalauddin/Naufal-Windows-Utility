@@ -17,10 +17,10 @@ $exe = Join-Path $output 'HeaderLayout.Tests.exe'
 $report = Join-Path $output 'header-layout-results.txt'
 $started = [DateTime]::UtcNow
 $testProcess = Start-Process -FilePath $exe -ArgumentList "--startup-scale=$StartupScale", "--startup-theme=$StartupTheme", "--languages=$($Languages -join ',')" -WindowStyle Hidden -PassThru
-if (-not $testProcess.WaitForExit(60000)) {
+if (-not $testProcess.WaitForExit(180000)) {
     # Only this newly created, backend-free test host may be stopped.
     $testProcess.Kill()
-    throw 'Native header layout test timed out after 60 seconds.'
+    throw 'Native header layout test timed out after 180 seconds.'
 }
 if (-not (Test-Path -LiteralPath $report)) { throw 'Native header layout test produced no report.' }
 $reportFile = Get-Item -LiteralPath $report

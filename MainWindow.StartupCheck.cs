@@ -35,7 +35,7 @@ public sealed partial class MainWindow
             if (Title != AppIdentity.Product) throw new InvalidOperationException("Window title mismatch.");
             if (Microsoft.Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride != "en-US")
                 throw new InvalidOperationException("Framework resource language did not initialize to English.");
-            var pages = new FrameworkElement[] { HomePage, RepairPage, InfoPage, SecurityPage, AdvancedPage };
+            var pages = new FrameworkElement[] { HomePage, RepairPage, InfoPage, SecurityPage, AdvancedPage, NetworkPage };
             if (MainNavigation.MenuItems.Count != pages.Length) throw new InvalidOperationException("Sidebar page count mismatch.");
             for (int index = 0; index < pages.Length; index++)
             {
@@ -62,7 +62,7 @@ public sealed partial class MainWindow
                     (uint)bitmap.PixelWidth, (uint)bitmap.PixelHeight, 96, 96, pixels);
                 await encoder.FlushAsync();
             }
-            File.AppendAllText(report, "PASS: actual application startup, English framework resources, five sidebar pages, live Home reads, and Dark/Light captures. No system changes requested.\n");
+            File.AppendAllText(report, "PASS: actual application startup, English framework resources, six sidebar pages, live Home reads, and Dark/Light captures. No system changes requested.\n");
         }
         catch (Exception exception)
         {

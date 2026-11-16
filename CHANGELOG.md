@@ -1,6 +1,6 @@
 # Naufal Windows Utility — Changelog
 
-Development history from **30 August 2026** through **23 October 2026**.
+Development history from **30 August 2026** through **16 November 2026**.
 
 **Original history snapshot:** 12 September 2026, 00:39:41 WIB (Asia/Jakarta, UTC+07:00).
 Later development entries are appended below with their own dates.
@@ -21,6 +21,106 @@ mutation, complete visual validation, or full behavioral parity.
 Historical report filenames identify the records used when this history was
 assembled. Reports not included in this repository are shown as plain references,
 not download links; private backups and raw machine evidence are not published.
+
+## 16 November 2026 — v8.0.0.5 published
+
+- Published source and the x64 installer as GitHub release `v8.0.0.5`.
+- Installer: `Naufal-Windows-Utility-Setup-8.0.0.5-x64.exe`.
+  SHA-256: `4CEC6094AB73075CABD94143340008C7D238DDC80146726CBEB70CE161B4AF26`.
+- The release notes retain the verification boundary: the limited 1051 fallback
+  was exercised in a VM, while the original stuck-download failure was not
+  reproduced by the approved Pause/Resume scan. Physical RST/ASM2362/RTL9210
+  acceptance remains unverified.
+
+## 27 October 2026 — v8.0.0.5 VM follow-up
+
+- One explicitly approved VM Pause/Resume cycle confirmed the paused state,
+  resumed to Checking for updates and returned to **You're up to date** at
+  05:57 +07:00, without an error or restart request. No update download was
+  offered, so the reported post-resume failure was not reproduced. Updates
+  were left resumed; repair was not rerun during this cycle.
+- The 25 October live retest verified the limited 1051 fallback: the two
+  SoftwareDistribution backups were retained, catroot2 was skipped, and final
+  read-back reported BITS/wuauserv/cryptsvc Running. The UI correctly displayed
+  **Partial repair**, not full repair success.
+- The 27 October read-only inspection found Windows Update **You're up to date**
+  and KB5127694 **Successfully installed on 25 October 2026** in update history.
+  Its download/install was not directly observed; guest-state continuity and
+  causation by the repair are not established. No universal stuck-download
+  recovery claim is made. See [verification details](docs/verification-8.0.0.5.md).
+
+
+## 25 October 2026 — v8.0.0.5 Windows Update dependency handling
+
+- Live VirtualBox v8.0.0.4 testing opened Chrome's vendor uninstaller, completed
+  the user-approved uninstall without selecting deletion of browsing data, and
+  detected the absent uninstall registration after reloading. This does not
+  certify other vendors or removal of all residual files.
+- Reproduced Windows Update Fix failure: `cryptsvc` stop returned 1051 because
+  dependent services were running. The old workflow aborted before cache reset.
+- The new workflow permits a narrowly scoped SoftwareDistribution reset only
+  for a confirmed, non-timeout 1051 with cryptsvc still Running. It retains
+  catroot2, does not stop dependent/security services, rechecks download services
+  before each rename, and preserves cache backups.
+- The skipped catalog stage and overall **Partial repair** outcome are explicit
+  in the UI, task detail and report. Full repair success remains false; failure
+  of final verification is still a failure, not a partial success.
+- Added regression coverage for dependency refusal, access denial, timeout,
+  unreadable state, service restart races and failed final verification.
+- Verification: 5,129 general regression assertions, 44 update-workflow and
+  89 synthetic SMART assertions, plus 47,240 native UI assertions across 276
+  layout cases and 8 flyouts passed. These are local automated checks.
+- Live retest and update evidence were subsequently recorded in the 27 October
+  entry above; a controlled stuck-download reproduction remains outstanding.
+  No physical RST/ASM2362/RTL9210, AI runtime or startup sign-in pass is claimed.
+
+## 24 October 2026 — v8.0.0.4 audit fixes (local, not published)
+
+- Navigation now resets the shared content viewport when switching pages, so a
+  long workspace's scroll offset cannot hide the next page's heading/actions.
+- Corrected the real-app startup smoke check to include Network Settings Manager
+  (six pages, not five). This corrects the check; it is not itself a live smoke pass.
+- Scoped Copilot progress callbacks to the active operation. Queued/late progress
+  cannot replace final success, error or cancellation text. An absent Copilot app
+  is recorded as unavailable rather than a completed uninstall.
+- Validate every registry payload before any workspace write. Malformed later
+  values and null multi-string payloads cannot cause a partial apply. Registry
+  target aliases differing only in case are recognized as duplicates.
+- Recheck state after durable journal creation and before each write. If another
+  actor changes it, stop and retain recovery evidence. This narrows race windows;
+  registry changes are still not an atomic transaction across processes.
+- Expanded tests for these failures. The full UI runner has a bounded 180-second
+  allowance instead of 60 seconds; the complete suite now takes about 55 seconds
+  on the development machine, leaving little margin under the previous limit.
+- Verification: 5,114 backend and 47,240 native WinUI assertions passed; GPU,
+  network, LSA and historical security/storage suites also passed with fake
+  providers. See [audit evidence and limits](docs/verification-8.0.0.4.md).
+- Includes the prior local 8.0.0.3 fixes. No host uninstall, registry/network
+  mutation, automatic installation or GitHub publication was performed.
+
+## 23 October 2026 — v8.0.0.3 local fix candidate (not published)
+
+- Fixed registered-uninstaller resolution for quoted/unquoted executable paths
+  containing spaces. NVIDIA InstallerCore is supported only through its registered
+  machine-wide package route, expected local DLL and verified NVIDIA signature.
+  Arbitrary DLL/script-host commands remain blocked; launch is not removal proof.
+- Added feedback beside workspace actions, including confirmation cancellation,
+  unavailable Copilot and error details. AI controls explain already-disabled
+  policies and existing combined-snapshot ownership before an action is attempted.
+- Startup rows explain Windows-disabled/unsupported registrations and provide a
+  working Windows Settings action instead of an unexplained disabled button.
+- Adapted tool footers, long labels, headings and inventory heights for short
+  windows. Tool content can scroll without hiding Apply, Restore or Close.
+  Text scaling no longer inflates minimum window dimensions beyond the screen.
+- Verification: 5,102 backend assertions and 1,438 focused native small-window
+  assertions passed. Tool coverage includes 1366/1280/1024/800 widths at 480–700
+  heights with 100/150/200% text; workspace coverage includes 20 small-window
+  theme/text combinations with synthetic action invocation. No host uninstall,
+  startup/policy mutation or live AI behavioral acceptance is claimed.
+- This local candidate is separate from the published v8.0.0.2 preview.
+- Full regression follow-up: 47,180 native WinUI assertions (276 layout cases)
+  and 391 English UI/resource assertions passed. The focused count above is
+  overlapping coverage, not an additional claim of live Windows changes.
 
 ## 23 October 2026 — v8.0.0.2 De-bloat Workspace Preview
 

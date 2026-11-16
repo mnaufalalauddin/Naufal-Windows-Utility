@@ -14,6 +14,7 @@ public sealed partial class MainWindow
     private readonly DebloatWorkspaceService _debloatWorkspace = new();
     private readonly List<Control> _debloatWorkspacePanels = [];
     private readonly Dictionary<string, string> _desktopUninstallLaunched = [];
+    private TextBlock? _workspaceActionFeedback;
 
     private static TextBlock WorkspaceText(string text) => DebloatWorkspaceView.Text(text);
 
@@ -47,9 +48,12 @@ public sealed partial class MainWindow
         AdvancedPage.Children.Add(section.View);
     }
 
-    private async Task WorkspaceRun(TextBlock status, Func<Task> action, string? confirmation = null, string label = "Apply")
+    private async Task WorkspaceRun(TextBlock status, Func<Task> action, string? confirmation = null, string label = "Apply", Func<string>? outcome = null)
     {
         if (_debloatWorkspaceBusy) return;
+        TextBlock? feedback = _workspaceActionFeedback;
+        long callback = status.RegisterPropertyChangedCallback(TextBlock.TextProperty, (_, _) =>
+        { if (feedback is not null) feedback.Text = status.Text; });
         _debloatWorkspaceBusy = true;
         foreach (var panel in _debloatWorkspacePanels) panel.IsEnabled = false;
         TaskActivityService.TaskActivityLease? lease = null;
@@ -57,18 +61,19 @@ public sealed partial class MainWindow
         {
             if (confirmation is not null)
             {
-                if (!await ShowConfirmationWindowAsync(label, confirmation, label)) return;
+                status.Text = "Waiting for confirmation…";
+                if (!await ShowConfirmationWindowAsync(label, confirmation, label)) { status.Text = "Cancelled. No changes made."; return; }
                 lease = await AcquireManagedTaskAsync("DebloatWorkspace", label,
                     ["SystemMutation", "AppxDeployment", "Catalog:Advanced Windows Tweaks & De-Bloat"]);
-                if (lease is null) return;
+                if (lease is null) { status.Text = "Not started: another workspace task is already active."; return; }
             }
             status.Text = "Working…";
             await action();
-            lease?.Complete(status.Text == "Cancelled." ? "CANCELLED" : "COMPLETED", status.Text);
+            lease?.Complete(status.Text == "Cancelled." ? "CANCELLED" : outcome?.Invoke() ?? "COMPLETED", status.Text);
         }
         catch (Exception exception)
         {
-            status.Text = "Not completed: " + exception.Message;
+            status.Text = $"Not completed: {exception.Message} (0x{exception.HResult:X8})";
             lease?.Complete("FAILED", status.Text);
         }
         finally
@@ -76,16 +81,28 @@ public sealed partial class MainWindow
             lease?.Dispose();
             _debloatWorkspaceBusy = false;
             foreach (var panel in _debloatWorkspacePanels) panel.IsEnabled = true;
+            status.UnregisterPropertyChangedCallback(TextBlock.TextProperty, callback);
+            feedback?.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false, VerticalAlignmentRatio = 0.5 });
             RefreshManagedTaskHeader();
         }
     }
     private static StackPanel WorkspaceCard(StackPanel rows, string name, string details)
         => DebloatWorkspaceView.Card(rows, name, details);
-    private static Button WorkspaceButton(StackPanel parent, string text, Func<Task> action, bool enabled = true)
+    private Button WorkspaceButton(StackPanel parent, string text, Func<Task> action, bool enabled = true)
     {
         Button button = DebloatWorkspaceView.Button(text); button.IsEnabled = enabled;
-        button.Click += async (_, _) => await action();
+        TextBlock feedback = WorkspaceText("");
+        feedback.Visibility = Visibility.Collapsed;
+        button.Click += async (_, _) =>
+        {
+            if (_debloatWorkspaceBusy) return;
+            feedback.Visibility = Visibility.Visible;
+            _workspaceActionFeedback = feedback;
+            try { await action(); }
+            finally { _workspaceActionFeedback = null; }
+        };
         parent.Children.Add(button);
+        parent.Children.Add(feedback);
         return button;
     }
     private static void WorkspaceSearch(StackPanel rows, List<(FrameworkElement Row, string Text)> items)
@@ -103,29 +120,36 @@ public sealed partial class MainWindow
     {
         var copilot = WorkspaceCard(rows, "Copilot app only", "Uninstall for the current account using the existing verified app-removal workflow. Does not disable Recall, Paint or Notepad. App data may be lost. Restore requires Microsoft Store availability.");
         foreach (bool restore in new[] { false, true })
+        {
+            string resultState = "UNAVAILABLE";
             WorkspaceButton(copilot, restore ? "Restore Copilot app" : "Uninstall Copilot app", () => WorkspaceRun(status, async () =>
             {
                 if (!await ConfirmCopilotSourceAsync(this)) { status.Text = "Cancelled."; return; }
                 using var consent = CopilotSourceConsent.BeginConfirmedOperation();
                 var service = new BuiltInAppsService();
-                var result = await BuiltInAppsRemoval.RunAsync(service, ["Copilot"], null, restore);
+                BuiltInAppsResult result;
+                using (var progress = new ScopedProgress<BuiltInAppUpdate>(update => status.Text = update.Detail))
+                    result = await BuiltInAppsRemoval.RunAsync(service, ["Copilot"], progress, restore);
+                resultState = result.TaskState;
                 if (!result.Success) throw new InvalidOperationException(result.Report);
-                status.Text = result.Report;
+                status.Text = !restore && result.Unavailable > 0 && result.Succeeded == 0
+                    ? "Copilot is not installed for this Windows account. Nothing was uninstalled.\n" + result.Report
+                    : result.Report;
             }, restore ? BuiltInAppsCatalog.StoreConsent + " " + BuiltInAppsCatalog.RestoreNotice : BuiltInAppsCatalog.Warning,
-                restore ? "Restore Copilot" : "Uninstall Copilot"));
+                restore ? "Restore Copilot" : "Uninstall Copilot", () => resultState));
+        }
+        string? management = await Task.Run(DebloatWorkspaceService.PolicyOwnerBlock);
         foreach (var control in DebloatWorkspacePolicy.AiControls)
         {
-            var state = await Task.Run(() => (Reason: DebloatWorkspaceService.AiUnavailable(control),
-                Status: _debloatWorkspace.AiStatus(control), Saved: _debloatWorkspace.HasSnapshot("ai-" + control.Id)));
-            var card = WorkspaceCard(rows, control.Name, control.Warning + "\n" + state.Status +
-                (state.Reason is null ? "" : "\nUnavailable: " + state.Reason));
+            var state = await Task.Run(() => _debloatWorkspace.ReadAiState(control, management));
+            var card = WorkspaceCard(rows, control.Name, control.Warning + "\n" + state.Summary);
             foreach (bool restore in new[] { false, true })
-                WorkspaceButton(card, restore ? "Restore original policy" : "Disable AI feature", () => WorkspaceRun(status, async () =>
+                WorkspaceButton(card, restore ? "Restore original policy" : state.ApplyLabel, () => WorkspaceRun(status, async () =>
                 {
                     await Task.Run(() => _debloatWorkspace.ChangeAi(control, restore));
                     status.Text = "Configuration read-back verified. " + control.Warning + " Reload to see the current state.";
                 }, control.Name + ": " + control.Warning + "\nScope: all Windows accounts. Original policy snapshot is retained before changes.",
-                    restore ? "Restore original policy" : "Disable " + control.Name), restore ? state.Saved : state.Reason is null);
+                    restore ? "Restore original policy" : "Disable " + control.Name), restore ? state.RestoreBlock is null : state.ApplyBlock is null);
         }
         status.Text = "AI configuration loaded. Existing policy ownership is checked again before any write.";
     }
@@ -140,16 +164,18 @@ public sealed partial class MainWindow
         List<(FrameworkElement Row, string Text)> searchable = [];
         foreach (var app in apps)
         {
+            string? blocked = DebloatWorkspaceService.UninstallerUnavailable(app);
             var card = WorkspaceCard(rows, app.Name, $"Publisher (reported): {app.Publisher}\nVersion: {app.Version} · Scope: {app.Scope}\nLocation: {app.Location}\n" +
-                (app.SystemComponent ? "System component: direct removal blocked." : "Review vendor documentation before removal. No automatic bloat classification.") + "\nRegistered uninstaller: " + app.UninstallCommand);
+                (blocked ?? "Ready to launch the registered uninstaller after confirmation. No automatic bloat classification.") + "\nRegistered uninstaller: " + app.UninstallCommand);
             searchable.Add(((FrameworkElement)rows.Children.Last(), app.Name + " " + app.Publisher + " " + app.Identity));
-            WorkspaceButton(card, "Launch registered uninstaller", () => WorkspaceRun(status, () =>
+            WorkspaceButton(card, "Launch registered uninstaller", () => WorkspaceRun(status, async () =>
             {
-                DebloatWorkspaceService.LaunchUninstaller(app);
+                status.Text = "Validating and launching registered uninstaller…";
+                await Task.Run(() => DebloatWorkspaceService.LaunchUninstaller(app));
                 _desktopUninstallLaunched[app.Identity] = app.Name;
                 status.Text = "Uninstaller launched; removal is NOT yet verified. Complete its prompts, then Analyze / reload to check registration. Reinstall through the vendor if needed; no app-data backup was created.";
-                return Task.CompletedTask;
-            }, $"{app.Name}\nPublisher (reported, not verified): {app.Publisher}\nScope: {app.Scope}\nCommand: {app.UninstallCommand}\nThe vendor uninstaller may remove data or request a restart. It runs independently of this window. Save your work first.", "Launch uninstaller"), !app.SystemComponent && app.UninstallCommand.Length > 0);
+            }, $"{app.Name}\nPublisher (reported, not verified): {app.Publisher}\nScope: {app.Scope}\nCommand: {app.UninstallCommand}\nThe vendor uninstaller may remove data or request a restart. It runs independently of this window. Save your work first.", "Launch uninstaller"), blocked is null);
+            if (blocked is not null) WorkspaceSettingsButton(card, status, "Open Windows Installed apps", "ms-settings:appsfeatures");
         }
         WorkspaceSearch(rows, searchable);
         WorkspaceButton(rows, "Open Windows Installed apps", () => WorkspaceRun(status, async () =>
@@ -166,7 +192,12 @@ public sealed partial class MainWindow
             bool saved = _debloatWorkspace.HasSnapshot(app.Id);
             var card = WorkspaceCard(rows, app.Name, $"{(app.DisabledByUtility ? "Disabled by this utility" : "Run registration present (not proof it ran)")}\nPublisher (file metadata): {app.Publisher}\nSource: {app.Source}\nCommand: {app.Command}\n{app.BlockReason}");
             searchable.Add(((FrameworkElement)rows.Children.Last(), app.Name + " " + app.Publisher + " " + app.Command));
-            WorkspaceButton(card, saved ? "Enable / restore original registration" : "Disable startup registration", () => WorkspaceRun(status, async () =>
+            if (app.BlockReason is not null)
+            {
+                WorkspaceSettingsButton(card, status, "Open Windows startup settings", "ms-settings:startupapps");
+                continue;
+            }
+            WorkspaceButton(card, saved ? "Restore original registration (keep Windows approval)" : "Disable startup registration", () => WorkspaceRun(status, async () =>
             {
                 await Task.Run(() => _debloatWorkspace.ChangeStartup(app, saved));
                 status.Text = "Startup registration read-back verified. A running app was not stopped. Reload the list; next-sign-in behavior has not been tested.";
@@ -178,6 +209,13 @@ public sealed partial class MainWindow
         { if (!await Windows.System.Launcher.LaunchUriAsync(new("ms-settings:startupapps"))) throw new InvalidOperationException("Windows Settings did not open."); status.Text = "Windows startup settings opened."; }));
         status.Text = $"{apps.Length} Run registrations / saved entries loaded. Services and scheduled tasks are not changed here.";
     }
+
+    private void WorkspaceSettingsButton(StackPanel parent, TextBlock status, string label, string uri) =>
+        WorkspaceButton(parent, label, () => WorkspaceRun(status, async () =>
+        {
+            if (!await Windows.System.Launcher.LaunchUriAsync(new(uri))) throw new InvalidOperationException("Windows Settings did not open.");
+            status.Text = "Windows Settings opened. No change was applied by this utility.";
+        }));
 
     private async Task LoadBackgroundWorkspace(StackPanel rows, TextBlock status)
     {

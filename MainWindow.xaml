@@ -145,7 +145,7 @@
             <!-- The full-width Grid owns centering of the capped content. A capped
                  direct ScrollViewer child is offset by its narrow DesiredSize but
                  arranged wider, which can push the shared toolbar off-screen. -->
-            <ScrollViewer HorizontalScrollBarVisibility="Disabled" HorizontalScrollMode="Disabled"
+            <ScrollViewer x:Name="MainPageScrollViewer" HorizontalScrollBarVisibility="Disabled" HorizontalScrollMode="Disabled"
                           VerticalScrollBarVisibility="Auto" HorizontalContentAlignment="Stretch">
                 <Grid>
                 <StackPanel Margin="24,16,24,24" Spacing="24" MaxWidth="1320" HorizontalAlignment="Stretch">

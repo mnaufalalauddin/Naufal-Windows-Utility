@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using System;
 
 namespace Naufal_Windows_Tech_s_Powertoys;
 
@@ -22,6 +23,25 @@ internal sealed class DebloatWorkspaceSection
         Panel.Children.Add(Reload); Panel.Children.Add(Status); Panel.Children.Add(Viewer);
         View = new Expander { Header = DebloatWorkspaceView.Text(title), Content = Panel,
             HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch };
+        FrameworkElement? windowRoot = null;
+        void ResizeInventory(object? sender, SizeChangedEventArgs args) => FitInventory();
+        void FitInventory()
+        {
+            if (windowRoot is not null && windowRoot.ActualHeight > 0)
+                Viewer.MaxHeight = Math.Clamp(windowRoot.ActualHeight * 0.4, 80, 520);
+        }
+        View.Loaded += (_, _) =>
+        {
+            if (windowRoot is not null) windowRoot.SizeChanged -= ResizeInventory;
+            windowRoot = View.XamlRoot?.Content as FrameworkElement;
+            if (windowRoot is not null) windowRoot.SizeChanged += ResizeInventory;
+            FitInventory();
+        };
+        View.Unloaded += (_, _) =>
+        {
+            if (windowRoot is not null) windowRoot.SizeChanged -= ResizeInventory;
+            windowRoot = null;
+        };
     }
 }
 

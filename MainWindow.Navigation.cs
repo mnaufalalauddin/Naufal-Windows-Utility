@@ -21,6 +21,9 @@ public sealed partial class MainWindow
         if (selected == "Home") OnHomeActivated();
         if (selected == "Network") OnNetworkActivated();
         if (selected == "Advanced") OnAdvancedActivated();
+        // The pages share one viewport. Do not carry a long workspace's scroll
+        // offset into another page and hide its heading/actions on arrival.
+        MainPageScrollViewer.ChangeView(null, 0, null, disableAnimation: true);
     }
 
     private void MainNavigation_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)

@@ -679,6 +679,13 @@ namespace Naufal_Windows_Tech_s_Powertoys
                    host.EndsWith('.' + root, StringComparison.Ordinal);
         }
 
+        internal static void VerifyNvidiaUninstallerSignature(string path)
+        {
+            var signature = VerifyAuthenticode(path, new[] { "NVIDIA Corporation" });
+            if (!signature.Trusted || !signature.PublisherMatches)
+                throw new InvalidDataException("NVIDIA uninstaller signature could not be verified. No DLL was launched. Use Windows Installed apps or the official NVIDIA installer.");
+        }
+
         private static AuthenticodeVerification VerifyAuthenticode(
             string path,
             IReadOnlyList<string> expectedPublishers)

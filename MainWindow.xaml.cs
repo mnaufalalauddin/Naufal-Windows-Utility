@@ -1196,7 +1196,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
         {
             if (!await ShowConfirmationWindowAsync(
                     "Windows Update Fix",
-                    "Repair BITS, Windows Update and Cryptographic Services, then reset the download, update database and catroot2 caches? Downloads may restart from the beginning and the local update-history view may be rebuilt; installed updates are not uninstalled. Existing caches are renamed to unique backups, not deleted. Close Windows Update Settings first and do not run this while updates are installing. Administrator rights are required.",
+                    "Repair BITS, Windows Update and Cryptographic Services, then reset the download, update database and catroot2 caches? If running dependent services prevent stopping Cryptographic Services (1051), only the download/database caches are reset and the result is reported as partial; catroot2 and dependent services are not changed. Downloads may restart from the beginning and the local update-history view may be rebuilt; installed updates are not uninstalled. Existing caches are renamed to unique backups, not deleted. Close Windows Update Settings first and do not run this while updates are installing. Administrator rights are required.",
                     "Run Repair"))
             {
                 return;
@@ -1236,25 +1236,23 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 taskLease.UpdateDetail("Repairing Windows Update services and caches.");
                 MaintenanceOperationResult result = await _windowsUpdateRepairService.RunAsync(
                     progressWindow.Progress);
-                TaskStatusMessage = result.Success
+                string completionMessage = result.PartialRepair
+                    ? "Partial repair: download/database caches reset; catroot2 was skipped because cryptsvc has running dependents. Retry Windows Update; download completion is not verified."
+                    : result.Success ? "Windows Update repair completed." : "Windows Update repair failed.";
+                TaskStatusMessage = result.PartialRepair ? "TASKS: WARNING" : result.Success
                     ? result.WarningCount > 0 ? "TASKS: WARNING" : "TASKS: COMPLETE"
                     : "TASKS: FAILED";
                 progressWindow.Complete(
                     result.Success,
                     result.WarningCount,
-                    result.Success
-                        ? "Windows Update repair completed."
-                        : "Windows Update repair failed.",
-                    result.Report);
+                    completionMessage,
+                    result.Report,
+                    partialRepair: result.PartialRepair);
                 taskLease.Complete(
-                    result.Success
+                    result.PartialRepair ? "WARNING" : result.Success
                         ? result.WarningCount > 0 ? "WARNING" : "COMPLETED"
                         : "FAILED",
-                    result.Success
-                        ? result.WarningCount > 0
-                            ? "Windows Update repair completed with warnings."
-                            : "Windows Update repair completed."
-                        : "Windows Update repair failed.");
+                    completionMessage);
             }
             catch (Exception exception)
             {
@@ -3849,7 +3847,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
         {
             return new Button
             {
-                Content = text,
+                Content = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center },
                 Background = new SolidColorBrush(background),
                 BorderBrush = new SolidColorBrush(background),
                 Foreground = new SolidColorBrush(Colors.White),

@@ -21,6 +21,34 @@ internal sealed record StartupAppEntry(string Id, string Name, string Command, s
 internal sealed record BackgroundAppEntry(string Family, string Name, string? BlockReason);
 internal sealed record ProvisionedAppEntry(string PackageName, string DisplayName, string? TargetId);
 internal sealed record AiControl(string Id, string Name, string Warning, DebloatEdit[] Edits);
+internal sealed record AiWorkspaceState(bool Configured, bool Saved, string? ApplyBlock, string? RestoreBlock)
+{
+    internal string ApplyLabel => Configured ? "Already disabled by policy" : "Disable AI feature";
+    internal string Summary => (Configured ? "Disable policy is already configured. No additional disable action is needed." : "Disable policy is not fully configured.") +
+        "\n" + (Saved ? "Workspace recovery snapshot available." : "No individual workspace snapshot.") +
+        (ApplyBlock is null ? "" : "\nDisable: " + ApplyBlock) + (RestoreBlock is null ? "" : "\nRestore: " + RestoreBlock);
+}
+
+internal static class WorkspaceAvailability
+{
+    internal static AiWorkspaceState Ai(bool configured, bool saved, bool combinedOwner, bool existingPolicy, string? unsupported, string? management)
+    {
+        string? owner = combinedOwner ? "Original settings belong to Advanced Windows Tweaks & De-Bloat > Windows AI / Paint AI. Use Restore there first. No backup was replaced." : null;
+        string? apply = configured ? "Already configured; no changes needed." : owner ?? unsupported ?? management ??
+            (!saved && existingPolicy ? "An existing policy has no workspace snapshot. Review its owner; it will not be overwritten." : null);
+        string? restore = !saved ? owner ?? "No original workspace snapshot; defaults will not be guessed." : owner ?? management;
+        return new(configured, saved, apply, restore);
+    }
+    internal static string? StartupApprovalBlock(object? approval)
+    {
+        if (approval is null) return null;
+        if (approval is not byte[] bytes || bytes.Length != 12 || bytes[1] != 0 || bytes[2] != 0 || bytes[3] != 0)
+            return "Windows startup approval is unreadable or unknown. Open Windows startup settings.";
+        if (bytes[0] is 3 or 7) return "Already disabled in Windows startup settings. No additional disable is needed. Enable it there if desired.";
+        if (bytes[0] == 2) return null;
+        return "Windows startup approval is not a supported enabled state. Open Windows startup settings.";
+    }
+}
 
 internal interface IDebloatRegistry
 {
@@ -38,20 +66,34 @@ internal interface IDebloatJournal
 // are validated before any mutation; partial failures retain the recovery record.
 internal static class DebloatTransaction
 {
+    private sealed class TargetComparer : IEqualityComparer<DebloatTarget>
+    {
+        public bool Equals(DebloatTarget? a, DebloatTarget? b) => a is null ? b is null : b is not null &&
+            a.Hive == b.Hive && a.View == b.View && StringComparer.OrdinalIgnoreCase.Equals(a.Path, b.Path) &&
+            StringComparer.OrdinalIgnoreCase.Equals(a.Name, b.Name);
+        public int GetHashCode(DebloatTarget target) => HashCode.Combine(target.Hive, target.View,
+            StringComparer.OrdinalIgnoreCase.GetHashCode(target.Path), StringComparer.OrdinalIgnoreCase.GetHashCode(target.Name));
+    }
+    private static readonly TargetComparer Targets = new();
     internal static bool Equal(DebloatValue? a, DebloatValue? b) => a is null ? b is null :
         b is not null && a.Kind == b.Kind && a.Data.SequenceEqual(b.Data, StringComparer.Ordinal);
 
     internal static void Change(string id, DebloatEdit[] desired, bool restore,
         IDebloatRegistry registry, IDebloatJournal journal)
     {
-        if (desired.Length == 0 || desired.Select(e => e.Target).Distinct().Count() != desired.Length)
+        if (desired.Length == 0 || desired.Select(e => e.Target).Distinct(Targets).Count() != desired.Length)
             throw new InvalidOperationException("The change plan is empty or contains duplicate targets.");
         var saved = journal.Load(id);
         var current = desired.Select(e => new DebloatEdit(e.Target, registry.Read(e.Target))).ToArray();
+        // Validate every payload, including recovery values, before saving a new
+        // record or making the first write. A corrupt later value must not turn
+        // validation into a partially applied operation.
+        foreach (var edit in desired.Concat(current).Concat(saved?.Original ?? []).Concat(saved?.Applied ?? []))
+            if (edit.Value is not null) _ = DebloatRegistry.Decode(edit.Value);
         if (saved is not null)
         {
-            if (saved.Id != id || !saved.Original.Select(e => e.Target).SequenceEqual(desired.Select(e => e.Target)) ||
-                !saved.Applied.Select(e => e.Target).SequenceEqual(desired.Select(e => e.Target)))
+            if (saved.Id != id || !saved.Original.Select(e => e.Target).SequenceEqual(desired.Select(e => e.Target), Targets) ||
+                !saved.Applied.Select(e => e.Target).SequenceEqual(desired.Select(e => e.Target), Targets))
                 throw new InvalidOperationException("Recovery record does not match this operation. No changes made.");
             for (int i = 0; i < current.Length; i++)
                 if (!Equal(current[i].Value, saved.Applied[i].Value) && !Equal(current[i].Value, saved.Original[i].Value))
@@ -63,7 +105,17 @@ internal static class DebloatTransaction
         DebloatEdit[] plan = restore ? saved!.Original : desired;
         if (!restore)
             journal.Save(new(id, saved?.Captured ?? DateTimeOffset.UtcNow, saved?.Original ?? current, plan));
-        foreach (var edit in plan) registry.Write(edit);
+        // Journal I/O may take time. Do not overwrite an external change made
+        // since the initial read; retained recovery data is not permission to
+        // replace another actor's state. Registry writes are not transactional.
+        if (current.Any(e => !Equal(registry.Read(e.Target), e.Value)))
+            throw new InvalidOperationException("Settings changed while preparing the operation. No writes started; recovery record retained for review.");
+        for (int i = 0; i < plan.Length; i++)
+        {
+            if (!Equal(registry.Read(plan[i].Target), current[i].Value))
+                throw new InvalidOperationException("Settings changed during the operation. Further writes stopped; recovery record retained.");
+            registry.Write(plan[i]);
+        }
         if (plan.Any(e => !Equal(registry.Read(e.Target), e.Value)))
             throw new InvalidOperationException("Configuration read-back failed. Recovery record retained.");
         if (restore) journal.Delete(id);

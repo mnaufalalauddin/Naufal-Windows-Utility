@@ -25,7 +25,11 @@ internal sealed class DebloatRegistry : IDebloatRegistry
             _ => [Convert.ToString(value, CultureInfo.InvariantCulture) ?? ""]
         });
     }
-    internal static object Decode(DebloatValue value) => value.Kind switch
+    internal static object Decode(DebloatValue value)
+    {
+        if (value.Data is null || value.Data.Any(v => v is null))
+            throw new InvalidDataException("Missing registry payload in recovery record.");
+        return value.Kind switch
     {
         RegistryValueKind.MultiString => value.Data,
         RegistryValueKind.DWord => int.Parse(value.Data.Single(), CultureInfo.InvariantCulture),
@@ -33,7 +37,8 @@ internal sealed class DebloatRegistry : IDebloatRegistry
         RegistryValueKind.Binary or RegistryValueKind.None => Convert.FromBase64String(value.Data.Single()),
         RegistryValueKind.String or RegistryValueKind.ExpandString => value.Data.Single(),
         _ => throw new InvalidDataException("Unsupported registry data in recovery record.")
-    };
+        };
+    }
     public void Write(DebloatEdit edit)
     {
         using var root = RegistryKey.OpenBaseKey(edit.Target.Hive, edit.Target.View);

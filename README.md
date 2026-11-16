@@ -1,7 +1,7 @@
 # Naufal Windows Utility — Windows Debloat, Repair & Network Tools
 
-[![Source version](https://img.shields.io/badge/Source_Version-v8.0.0.2-0567ff?style=for-the-badge)](CHANGELOG.md)
-[![Development preview](https://img.shields.io/badge/Preview-23_October_2026-8250df?style=for-the-badge)](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.2)
+[![Source version](https://img.shields.io/badge/Source_Version-v8.0.0.5-0567ff?style=for-the-badge)](CHANGELOG.md)
+[![Latest release](https://img.shields.io/badge/Latest_Release-v8.0.0.5-8250df?style=for-the-badge)](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.5)
 [![Windows target](https://img.shields.io/badge/Target-Windows_10_%2F_11_x64-0078d4?style=for-the-badge)](#quick-start)
 [![License](https://img.shields.io/badge/License-MIT-16803c?style=for-the-badge)](LICENSE)
 [![Interface](https://img.shields.io/badge/UI-English-8250df?style=for-the-badge)](#interface--project-status)
@@ -12,24 +12,51 @@ Looking for a **Windows debloater**, **Windows Update repair tool**, **Windows t
 
 Developed by **Muhammad Naufal Alauddin**. Independent, open-source, and under active development. **Not affiliated with Microsoft or Microsoft PowerToys.**
 
-**[Download v8.0.0.2](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.2)** · [Features](#whats-included) · [Release notes](docs/release-8.0.0.2.md) · [Build from source](#build--develop) · [Changelog](CHANGELOG.md)
+**[Download v8.0.0.5](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.5)** · [Features](#whats-included) · [Release and verification notes](docs/verification-8.0.0.5.md) · [Build from source](#build--develop) · [Changelog](CHANGELOG.md)
 
-> **23 October 2026 — v8.0.0.2 De-bloat Workspace Preview**
+> **Introduced in v8.0.0.2 — De-bloat Workspace**
 > Six inline panels add individual AI controls, desktop/OEM apps, startup and
 > background controls, reinstalled-app detection, and provisioning for new accounts.
 > **Preview, not universal certification:** new live VM acceptance is pending.
 > Online stuck-download recovery and physical Intel RST / ASM2362 / RTL9210
 > validation also remain outstanding. Read the [release limitations](docs/release-8.0.0.2.md).
 
-## Preview
+## Current release: v8.0.0.5
 
-### New in v8.0.0.2: six-panel De-bloat workspace
+Workspace actions now show
+nearby feedback and eligibility reasons; registered uninstaller parsing includes
+guarded NVIDIA InstallerCore support. Short-window layouts keep tool actions
+reachable by scrolling/reflow, including 1366×768-class displays and smaller
+tested windows. See the [changelog](CHANGELOG.md) for test scope and remaining live acceptance.
+The 24 October audit additionally fixes shared-page scroll carryover, late
+progress overwriting final results, missing-app outcome reporting and registry
+transaction preflight/drift checks. This is not a claim that every bug or every
+hardware-specific workflow has been verified.
+
+On 25 October, a disposable VirtualBox guest confirmed that v8.0.0.4 launches
+Chrome's real uninstaller and detects its removed registration afterward.
+Windows Update Fix then exposed a real `cryptsvc` stop error 1051 (running
+dependent services). The v8.0.0.5 candidate handles this narrowly: reset the
+SoftwareDistribution caches while leaving `catroot2` and dependent services
+untouched, and report **Partial repair**, never full success. Access-denied,
+timeout and unreadable-state errors still fail safely. Online download recovery,
+AI/startup behavior and physical storage-controller acceptance remain separate
+tests, not implied by this fix. The limited fallback was then verified live in
+the VM. A 27 October inspection found Windows Update up to date and KB5127694
+recorded as successfully installed on 25 October; the install was not directly
+observed and cannot be attributed to the repair. A controlled stuck-download
+recovery test remains outstanding. One controlled Pause/Resume cycle on
+27 October also completed its update scan successfully, with no offered
+download; the reported post-resume failure was not reproduced.
+See [VM evidence](docs/verification-8.0.0.5.md).
+
+### De-bloat workspace (introduced in v8.0.0.2)
 
 Open **Advanced Windows Tweaks → De-bloat workspace** for inline individual AI controls, desktop/OEM app inventory
 and registered uninstallers, scoped startup management, per-app background policy,
 verified-removal/reinstallation detection, and guarded provisioning management for
 new Windows accounts. See [behavior, recovery and limitations](docs/debloat-workspace.md).
-These additions are included in the **v8.0.0.2 preview installer**.
+These additions are included in the current **v8.0.0.5 installer**.
 Live VM acceptance remains separate from compilation and simulated tests.
 
 
@@ -69,7 +96,7 @@ data; they are not live update results or a screenshot of the complete inventory
 
 > **Back up important data before applying tweaks.** System-changing operations may require Administrator privileges. Review each option's warning; do not apply every tweak indiscriminately.
 
-1. Open the [v8.0.0.2 development preview](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.2) and download `Naufal-Windows-Utility-Setup-8.0.0.2-x64.exe`. Compare its SHA-256 with that release's attached `SHA256SUMS.txt`. The [previous non-preview release](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/latest) remains available but does not contain all changes described here. Alternatively, [build from source](#build--develop).
+1. Open the [latest v8.0.0.5 release](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.5) and download `Naufal-Windows-Utility-Setup-8.0.0.5-x64.exe`. Compare its SHA-256 with the attached `SHA256SUMS.txt`. Alternatively, [build from source](#build--develop).
 2. Run the installer, open **Naufal Windows Utility**, and review the first-run prerequisites.
 3. Choose a catalog or performance profile, read its description, and apply only the changes you need.
 4. Read analysis results inline in the tool window; Apply/Restore operations retain their separate progress and verification results. For completed changes marked restart-sensitive, the app offers **Restart now** or **Later** after active tasks finish. Save your work before accepting. Choosing Later does not schedule a reboot; restart from Windows when convenient.
@@ -169,7 +196,7 @@ Availability depends on the drive, controller, firmware, and Windows driver. End
 
 ### GPU driver release notifications
 
-The current preview includes an online release panel in **GPU Driver
+The current release includes an online release panel in **GPU Driver
 Manager**. Opening the manager checks the selected GPU against its official
 vendor catalog; select another GPU or use **Check for updates** to inspect it.
 **Check for updates**, **Repair driver**, and **Download & install** share a
@@ -400,12 +427,12 @@ The project file retains its historical filename. Passing tests is not proof tha
 
 ## Interface & Project Status
 
-**Current preview: [v8.0.0.2](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.2).**
-Checks on 23 October passed 5,060 backend regression assertions, 387 localization
-checks and 46,591 native WinUI assertions. The new workspace covers 12 synthetic
-width/theme/text-scale combinations. See the
-[release notes and checksum](docs/release-8.0.0.2.md). The installer remains unsigned and
-does not claim completion of the outstanding physical/live acceptance tests.
+**Current release: [v8.0.0.5](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.5).**
+This release includes the De-bloat workspace reliability and small-window fixes,
+guarded registered-uninstaller handling, and the narrowly scoped Windows Update
+1051 fallback. See [release verification and limitations](docs/verification-8.0.0.5.md).
+The installer remains unsigned and does not claim completion of the outstanding
+stuck-download reproduction or physical hardware acceptance tests.
 
 The simplified interface retains Disk Info/SMART, repair, existing tweak and
 recovery backends, action safety checks and guarded LSA Enable. HVCI is read-only.
