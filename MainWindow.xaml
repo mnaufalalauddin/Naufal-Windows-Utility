@@ -161,7 +161,14 @@
                     </Grid>
                     <StackPanel x:Name="HomePage" Spacing="20">
                         <TextBlock Text="Home" FontSize="28" FontWeight="SemiBold"/>
-                        <TextBlock Text="Your Windows configuration, at a glance." TextWrapping="Wrap"/>
+                        <AutoSuggestBox x:Name="HomeSearch" PlaceholderText="Search settings, tweaks and tools" QueryIcon="Find"
+                                        AutomationProperties.Name="Search settings, tweaks and tools"/>
+                        <TextBlock x:Name="SearchFeedback" Visibility="Collapsed" TextWrapping="Wrap"/>
+                        <TextBlock Text="Live telemetry" FontSize="22" FontWeight="SemiBold"/>
+                            <Grid x:Name="LiveChartsGrid" ColumnSpacing="10" RowSpacing="10" SizeChanged="HomeGrid_SizeChanged"><Border Style="{StaticResource MetricCardStyle}"><StackPanel Spacing="8"><TextBlock Text="CPU"/><TextBlock x:Name="CpuValueText" Text="Checking..."/><Grid x:Name="CpuGraphHost"/></StackPanel></Border>
+<Border Style="{StaticResource MetricCardStyle}"><StackPanel Spacing="8"><TextBlock Text="Memory"/><TextBlock x:Name="RamValueText" Text="Checking..."/><Grid x:Name="RamGraphHost"/></StackPanel></Border>
+<Border Style="{StaticResource MetricCardStyle}"><StackPanel Spacing="8"><TextBlock Text="GPU 3D"/><TextBlock x:Name="GpuValueText" Text="Checking..."/><Grid x:Name="GpuGraphHost"/></StackPanel></Border>
+<Border Style="{StaticResource MetricCardStyle}"><StackPanel Spacing="8"><TextBlock Text="Network RX / TX"/><TextBlock x:Name="NetworkValueText" Text="Checking..."/><Grid x:Name="NetworkGraphHost"/></StackPanel></Border></Grid>
                         <Border Grid.Column="0" Style="{StaticResource PanelBorderStyle}" Padding="18,16">
                         <StackPanel Spacing="14">
                             <TextBlock Text="Performance profile" FontSize="22" FontWeight="SemiBold"/>
@@ -226,12 +233,7 @@
                         <Button x:Name="LegacyWindowsPanelsButton" Content="Legacy Windows Panels"
                                         Click="LegacyWindowsPanelsButton_Click"
                                         Style="{StaticResource ToolButtonStyle}"/>
-                        <Expander Header="Live telemetry" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
-                            <Grid x:Name="LiveChartsGrid" ColumnSpacing="10" RowSpacing="10" SizeChanged="HomeGrid_SizeChanged"><Border Style="{StaticResource MetricCardStyle}"><StackPanel Spacing="8"><TextBlock Text="CPU"/><TextBlock x:Name="CpuValueText" Text="Checking..."/><Grid x:Name="CpuGraphHost"/></StackPanel></Border>
-<Border Style="{StaticResource MetricCardStyle}"><StackPanel Spacing="8"><TextBlock Text="Memory"/><TextBlock x:Name="RamValueText" Text="Checking..."/><Grid x:Name="RamGraphHost"/></StackPanel></Border>
-<Border Style="{StaticResource MetricCardStyle}"><StackPanel Spacing="8"><TextBlock Text="GPU 3D"/><TextBlock x:Name="GpuValueText" Text="Checking..."/><Grid x:Name="GpuGraphHost"/></StackPanel></Border>
-<Border Style="{StaticResource MetricCardStyle}"><StackPanel Spacing="8"><TextBlock Text="Network RX / TX"/><TextBlock x:Name="NetworkValueText" Text="Checking..."/><Grid x:Name="NetworkGraphHost"/></StackPanel></Border></Grid>
-                        </Expander>
+
                         <Expander Header="Technical details" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                             <TextBox x:Name="LiveDetailText" Text="Checking configuration..." IsReadOnly="True" AcceptsReturn="True"
                                      TextWrapping="NoWrap" FontFamily="Consolas" FontSize="12" Height="300"

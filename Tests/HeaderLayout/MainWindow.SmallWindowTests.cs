@@ -11,8 +11,8 @@ public sealed partial class MainWindow
 {
     private async Task CheckSmallWindowsAsync()
     {
-        foreach (var size in new[] { new SizeInt32(1366, 700), new SizeInt32(1280, 640), new SizeInt32(1024, 550), new SizeInt32(800, 480) })
-        foreach (int scale in new[] { 100, 150, 200 })
+        foreach (var size in new[] { new SizeInt32(1366, 768), new SizeInt32(1366, 700), new SizeInt32(1280, 640), new SizeInt32(1024, 550), new SizeInt32(800, 480) })
+        foreach (int scale in new[] { 100, 125, 150, 200 })
         {
             UiDisplaySettings.SetTextScale(scale);
             _case = $"small tool {size.Width}x{size.Height}, text {scale}%";
@@ -55,6 +55,6 @@ public sealed partial class MainWindow
             finally { window.Close(); }
         }
         UiDisplaySettings.SetTextScale(100);
-        File.AppendAllText(App.ResultPath, "Small-window tools: PASS; 1366/1280/1024/800 widths, 480–700 heights, 100/150/200% text, reachable body/footer actions and isolated button invocation.\n");
+        File.AppendAllText(App.ResultPath, "Small-window tools: PASS; 1366/1280/1024/800 widths, 480–768 heights, 100/125/150/200% text, reachable body/footer actions and isolated button invocation.\n");
     }
 }

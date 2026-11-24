@@ -75,6 +75,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
         public MainWindow()
         {
             InitializeComponent();
+            InitializeHomeSearch();
             UiDisplaySettings.KeepRecoveryControlUsable(ThemeButton);
             UiDisplaySettings.KeepRecoveryControlUsable(TextScaleButton);
             UiDisplaySettings.KeepRecoveryControlUsable(TextScaleGlyph);
@@ -1228,7 +1229,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
                     "Reset catroot2 cache",
                     "Restart Windows Update services",
                     "Verify Windows Update repair"
-                });
+                }, offerWindowsUpdateRetry: true);
             progressWindow.Show();
 
             try
@@ -1238,7 +1239,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
                     progressWindow.Progress);
                 string completionMessage = result.PartialRepair
                     ? "Partial repair: download/database caches reset; catroot2 was skipped because cryptsvc has running dependents. Retry Windows Update; download completion is not verified."
-                    : result.Success ? "Windows Update repair completed." : "Windows Update repair failed.";
+                    : result.Success ? "Update services and local caches verified. Open Windows Update to retry the download." : "Windows Update repair failed.";
                 TaskStatusMessage = result.PartialRepair ? "TASKS: WARNING" : result.Success
                     ? result.WarningCount > 0 ? "TASKS: WARNING" : "TASKS: COMPLETE"
                     : "TASKS: FAILED";
@@ -2020,7 +2021,9 @@ namespace Naufal_Windows_Tech_s_Powertoys
             return label;
         }
 
-        private async void GamingTweaksButton_Click(object sender, RoutedEventArgs e)
+        private async void GamingTweaksButton_Click(object sender, RoutedEventArgs e) => await OpenGamingTweaksAsync();
+
+        private async Task OpenGamingTweaksAsync(string initialSearch = "")
         {
             TaskStatusMessage = "TASKS: GAMING TWEAKS";
 
@@ -2030,7 +2033,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
                     "Gaming Tweaks",
                     GamingCatalog(),
                     _gamingActionsService,
-                    GamingCatalogOwnership.Notice + "\n" + GamingCatalogOwnership.IndependentNotice);
+                    GamingCatalogOwnership.Notice + "\n" + GamingCatalogOwnership.IndependentNotice, initialSearch);
             }
             catch (Exception exception)
             {
@@ -2044,7 +2047,9 @@ namespace Naufal_Windows_Tech_s_Powertoys
             }
         }
 
-        private async void EssentialTweaksButton_Click(object sender, RoutedEventArgs e)
+        private async void EssentialTweaksButton_Click(object sender, RoutedEventArgs e) => await OpenEssentialTweaksAsync();
+
+        private async Task OpenEssentialTweaksAsync(string initialSearch = "")
         {
             TaskStatusMessage = "TASKS: ESSENTIAL TWEAKS";
 
@@ -2053,16 +2058,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 await ShowToggleCatalogDialogAsync(
                     "Essential Windows Tweaks",
                     EssentialCatalog(),
-                    new FilteredToolActionService(
-                        _essentialActionsService,
-                        "IconCache",
-                        "TempFiles",
-                        "NtfsPerformance",
-                        "StoragePowerLatency",
-                        "DriverOptionalUpdates",
-                        "VirtualMemorySettings",
-                        "WindowsTroubleshoot",
-                        "DesktopBackground"));
+                    EssentialCatalogActions(), initialSearch: initialSearch);
             }
             catch (Exception exception)
             {
@@ -2075,7 +2071,9 @@ namespace Naufal_Windows_Tech_s_Powertoys
             }
         }
 
-        private async void DebloatButton_Click(object sender, RoutedEventArgs e)
+        private async void DebloatButton_Click(object sender, RoutedEventArgs e) => await OpenDebloatAsync();
+
+        private async Task OpenDebloatAsync(string initialSearch = "")
         {
             TaskStatusMessage = "TASKS: DE-BLOAT PREVIEW";
             try
@@ -2083,7 +2081,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 await ShowToggleCatalogDialogAsync(
                     "Advanced Windows Tweaks & De-Bloat",
                     AdvancedCatalog(),
-                    new BuiltInAppsService());
+                    new BuiltInAppsService(), initialSearch: initialSearch);
             }
             catch (Exception exception)
             {
@@ -2100,16 +2098,18 @@ namespace Naufal_Windows_Tech_s_Powertoys
             string title,
             IToolToggleService service,
             IToolActionService? actionService = null,
-            string? ownershipNotice = null)
+            string? ownershipNotice = null,
+            string initialSearch = "")
         {
             IReadOnlyList<ToolToggleDefinition> definitions = service.GetDefinitions();
             Dictionary<string, ToolToggleState> currentStates = new(StringComparer.OrdinalIgnoreCase);
             Dictionary<string, CheckBox> selectors = new(StringComparer.OrdinalIgnoreCase);
             Dictionary<string, ToggleSwitch> toggles = new(StringComparer.OrdinalIgnoreCase);
             Dictionary<string, TextBlock> stateTexts = new(StringComparer.OrdinalIgnoreCase);
+            Dictionary<string, TextBlock> selectionPreviews = new(StringComparer.OrdinalIgnoreCase);
             Dictionary<string, Grid> toggleRows = new(StringComparer.OrdinalIgnoreCase);
             Dictionary<string, Border> toggleCards = new(StringComparer.OrdinalIgnoreCase);
-            List<Border> actionOnlyCards = new();
+            List<(Border Card, ToolActionDefinition Action)> actionOnlyCards = new();
             Dictionary<string, Func<Task>> bulkActionRefresh = new(StringComparer.OrdinalIgnoreCase);
             Action? refreshBulkSummary = null;
             bool synchronizingControls = false;
@@ -2146,6 +2146,9 @@ namespace Naufal_Windows_Tech_s_Powertoys
             Grid contentGrid = new();
             contentGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             StackPanel filterHeader = new() { Spacing = 4, Margin = new Thickness(4, 0, 4, 8) };
+            TextBox search = new() { PlaceholderText = "Search this catalog", Text = initialSearch };
+            AutomationProperties.SetName(search, "Search this catalog");
+            filterHeader.Children.Add(search);
             ComboBox stateFilter = new()
             {
                 Header = "Show options", HorizontalAlignment = HorizontalAlignment.Stretch,
@@ -2159,7 +2162,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
             filterHeader.Children.Add(filterSummary);
             filterHeader.Children.Add(new TextBlock
             {
-                Text = "Filters use the analyzed state, not a pending choice. Bulk selection/restore affects visible options only; hidden selections are cleared. Action-only tools appear under All options.",
+                Text = "Select rows to review changes. Group actions affect visible options.",
                 TextWrapping = TextWrapping.Wrap, FontSize = 12
             });
             contentGrid.Children.Add(filterHeader);
@@ -2246,6 +2249,9 @@ namespace Naufal_Windows_Tech_s_Powertoys
                     Foreground = new SolidColorBrush(Color.FromArgb(255, 0, 79, 146))
                 };
                 details.Children.Add(actual);
+                var preview = new TextBlock { TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
+                details.Children.Add(preview);
+                selectionPreviews[definition.Id] = preview;
                 row.Children.Add(details);
 
                 CheckBox selector = new()
@@ -2266,8 +2272,8 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 {
                     IsOn = false,
                     IsEnabled = false,
-                    OnContent = "ON",
-                    OffContent = "OFF",
+                    OnContent = definition.IsFeatureSwitch ? "Enabled" : "Applied",
+                    OffContent = definition.IsFeatureSwitch ? "Disabled" : "Not fully applied",
                     MinWidth = 154,
                     MinHeight = 32,
                     HorizontalAlignment = HorizontalAlignment.Right,
@@ -2568,7 +2574,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
                         Grid.SetColumn(actionButtons, 1);
                         row.Children.Add(actionButtons);
                         card.Child = row;
-                        actionOnlyCards.Add(card);
+                        actionOnlyCards.Add((card, action));
                         rows.Children.Add(card);
                     }
                 }
@@ -2585,7 +2591,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
             };
             TextBlock emptyFilter = new()
             {
-                Text = "No options match this filter. Choose another filter or Analyze / reload.",
+                Text = "No matching options. Try another search or state filter.",
                 TextWrapping = TextWrapping.Wrap, Margin = new Thickness(4, 8, 4, 8),
                 Visibility = Visibility.Collapsed
             };
@@ -2607,16 +2613,9 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 RowSpacing = 6,
                 Margin = new Thickness(4, 10, 4, 0)
             };
-            for (int column = 0; column < 4; column++)
-            {
-                toolbar.ColumnDefinitions.Add(new ColumnDefinition
-                {
-                    Width = new GridLength(1, GridUnitType.Star)
-                });
-            }
-            toolbar.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            toolbar.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            toolbar.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
             Button selectAllButton = CreateCatalogToolbarButton(
                 "Select visible",
@@ -2653,16 +2652,20 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 restoreAllButton,
                 analyzeButton
             };
-            for (int index = 0; index < toolbarButtons.Length; index++)
+            StackPanel bulkCommands = new() { Spacing = 4 };
+            Flyout bulkFlyout = new() { Content = new ScrollViewer { Content = bulkCommands, MaxHeight = 320 } };
+            foreach (Button button in toolbarButtons)
             {
-                Button button = toolbarButtons[index];
                 button.IsEnabled = false;
-                Grid.SetRow(button, index / 4);
-                Grid.SetColumn(button, index % 4);
-                toolbar.Children.Add(button);
+                if (button == analyzeButton) continue;
+                button.Click += (_, _) => bulkFlyout.Hide();
+                bulkCommands.Children.Add(button);
             }
-            Grid.SetRow(selectionSummary, 2);
-            Grid.SetColumnSpan(selectionSummary, 4);
+            Button bulkMenu = new() { Content = "Group actions ▾", Flyout = bulkFlyout };
+            Grid.SetColumn(bulkMenu, 1);
+            Grid.SetColumn(analyzeButton, 2);
+            toolbar.Children.Add(bulkMenu);
+            toolbar.Children.Add(analyzeButton);
             toolbar.Children.Add(selectionSummary);
             Grid.SetRow(toolbar, 2);
             contentGrid.Children.Add(toolbar);
@@ -2696,8 +2699,8 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 this,
                 title,
                 contentGrid,
-                primaryButtonText: UiTextKeys.ApplySelected,
-                secondaryButtonText: "Restore selected",
+                primaryButtonText: "Review & apply",
+                secondaryButtonText: "Review & restore",
                 closeButtonText: "Close",
                 initialWidth: 1120,
                 initialHeight: 820,
@@ -2711,9 +2714,10 @@ namespace Naufal_Windows_Tech_s_Powertoys
             bool stateLoadInProgress = false;
             bool updatingStateFilter = false;
             long loadedAtEpoch = -1;
+            long lastScanAttempt = -1;
             CatalogStateView CurrentStateFilter() => stateFilter.SelectedItem is ComboBoxItem { Tag: CatalogStateView view }
                 ? view : CatalogStateView.All;
-            bool IsVisibleOption(ToolToggleDefinition definition) => CatalogStateFilter.Includes(
+            bool IsVisibleOption(ToolToggleDefinition definition) => MatchesSearch(search.Text, definition.Name, definition.Category, definition.Description, definition.Id) && CatalogStateFilter.Includes(
                 CurrentStateFilter(), currentStates.TryGetValue(definition.Id, out var state) ? state : null, statesLoaded);
             void UpdateStateFilter(bool scrollToTop = false)
             {
@@ -2727,10 +2731,16 @@ namespace Naufal_Windows_Tech_s_Powertoys
                         bool show = IsVisibleOption(definition);
                         toggleCards[definition.Id].Visibility = show ? Visibility.Visible : Visibility.Collapsed;
                         if (show) visible++;
-                        if (!show || !statesLoaded) selectors[definition.Id].IsChecked = false;
+                        if (statesLoaded && (!show || !currentStates[definition.Id].IsAvailable)) selectors[definition.Id].IsChecked = false;
                     }
                     bool showActions = CurrentStateFilter() == CatalogStateView.All;
-                    foreach (var card in actionOnlyCards) card.Visibility = showActions ? Visibility.Visible : Visibility.Collapsed;
+                    int visibleActions = 0;
+                    foreach (var (card, action) in actionOnlyCards)
+                    {
+                        bool show = showActions && MatchesSearch(search.Text, action.Name, action.Category, action.Description, action.Id);
+                        card.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+                        if (show) visibleActions++;
+                    }
                     foreach (ComboBoxItem item in stateFilter.Items)
                     {
                         var view = (CatalogStateView)item.Tag;
@@ -2738,9 +2748,9 @@ namespace Naufal_Windows_Tech_s_Powertoys
                         item.Content = $"{CatalogStateFilter.Label(view)} ({count})";
                     }
                     filterSummary.Text = $"Showing {visible}/{definitions.Count} toggle options" +
-                        (showActions && actionOnlyCards.Count > 0 ? $" + {actionOnlyCards.Count} action-only tools" : "") +
+                        (visibleActions > 0 ? $" + {visibleActions} action-only tools" : "") +
                         (statesLoaded ? "." : ". Status not verified; Analyze / reload is required.");
-                    emptyFilter.Visibility = visible == 0 && !(showActions && actionOnlyCards.Count > 0)
+                    emptyFilter.Visibility = visible == 0 && visibleActions == 0
                         ? Visibility.Visible : Visibility.Collapsed;
                     if (scrollToTop) catalogRowsViewer.ChangeView(null, 0, null, true);
                 }
@@ -2748,20 +2758,21 @@ namespace Naufal_Windows_Tech_s_Powertoys
             }
             void InvalidateCatalogView()
             {
-                if (window.IsClosed || loadedAtEpoch == CatalogStateEpoch.Version || applyInProgress || stateLoadInProgress) return;
+                if (window.IsClosed || loadedAtEpoch == CatalogStateEpoch.Version || applyInProgress || stateLoadInProgress || individualActionGate.IsBusy) return;
+                if (lastScanAttempt == CatalogStateEpoch.Version) return;
                 statesLoaded = false;
                 UpdateStateFilter();
                 SetCatalogInteraction(false);
                 analyzeButton.IsEnabled = !individualActionGate.IsBusy;
                 availabilityBadge.View.Visibility = Visibility.Collapsed;
                 selectionSummary.Text = "Configuration changed since this scan. Analyze / reload before another operation.";
-                foreach (var text in stateTexts.Values) text.Text = "Stale snapshot — Analyze / reload";
+                _ = LoadCatalogStatesAsync();
             }
             void OnCatalogStateChanged() => DispatcherQueue.TryEnqueue(InvalidateCatalogView);
             window.IsBusy = () => applyInProgress || stateLoadInProgress || individualActionGate.IsBusy;
             canStartIndividualAction = () => !window.IsClosed && statesLoaded &&
                 !applyInProgress && !stateLoadInProgress && !individualActionGate.IsBusy;
-            setCatalogInteraction = SetCatalogInteraction;
+            setCatalogInteraction = enabled => { SetCatalogInteraction(enabled); if (enabled) InvalidateCatalogView(); };
             reportIndividualFailure = exception =>
             {
                 if (window.IsClosed) return;
@@ -2779,10 +2790,12 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 if (window.IsClosed) return;
                 bool busy = applyInProgress || stateLoadInProgress || individualActionGate.IsBusy;
                 stateFilter.IsEnabled = !busy;
+                search.IsEnabled = !applyInProgress && !individualActionGate.IsBusy;
                 window.CloseButton.IsEnabled = !busy;
                 enabled &= statesLoaded && !busy;
                 window.PrimaryButton.IsEnabled = enabled;
                 window.SecondaryButton.IsEnabled = enabled;
+                bulkMenu.IsEnabled = enabled;
                 highImpactAcknowledgement.IsEnabled = enabled;
                 foreach (var item in individualButtons)
                     item.Button.IsEnabled = enabled && (!item.RequiresAdministrator || WindowsPrivilegeService.IsAdministrator());
@@ -2810,16 +2823,25 @@ namespace Naufal_Windows_Tech_s_Powertoys
 
                 int available = definitions.Count(definition =>
                     currentStates[definition.Id].IsAvailable);
-                int optimized = definitions.Count(definition =>
-                    currentStates[definition.Id].IsAvailable &&
-                    currentStates[definition.Id].IsOn);
                 availabilityBadge.Update(available, definitions.Count,
                     definitions.Count(definition => currentStates[definition.Id].IsConfirmedUnavailable));
                 CatalogSelectionPlan plan = SelectedPlan();
+                foreach (var definition in definitions)
+                {
+                    var preview = selectionPreviews[definition.Id];
+                    bool selectedRow = selectors[definition.Id].IsChecked == true && IsVisibleOption(definition);
+                    preview.Visibility = selectedRow ? Visibility.Visible : Visibility.Collapsed;
+                    if (selectedRow)
+                    {
+                        var state = currentStates[definition.Id];
+                        preview.Text = state.IsOn ? "Already applied. Review & restore to see the recovery target."
+                            : CatalogChangePreview(definition, state, true, restore: false);
+                    }
+                }
                 int selected = plan.Selected.Count;
                 int selectedChanges = plan.ToApply.Count;
                 selectionSummary.Text =
-                    $"Analyzed {available}/{definitions.Count} | Optimized {optimized} | Selected {selected} | Pending changes {selectedChanges}";
+                    $"{selected} selected · {selectedChanges} to apply · {plan.ToRestore.Count} eligible to restore";
             }
 
             void SelectCatalogScope(Func<ToolToggleDefinition, bool> predicate)
@@ -2904,7 +2926,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
                                 ? string.Empty
                                 : Environment.NewLine + $"{restorePlan.AlreadyRestoredCount} already-restored item(s) will be skipped.") +
                             Environment.NewLine + Environment.NewLine +
-                            string.Join(Environment.NewLine, availableItems.Select(item => "• " + item.Name)),
+                            string.Join(Environment.NewLine, availableItems.Select(item => "• " + item.Name + Environment.NewLine + CatalogChangePreview(item, currentStates[item.Id], false, restore: true, defaults: windowsDefault))),
                             "Restore"))
                     {
                         return;
@@ -2985,10 +3007,6 @@ namespace Naufal_Windows_Tech_s_Powertoys
                         try
                         {
                             toggles[definition.Id].IsOn = result.State.IsOn;
-                            if (result.Success && result.Verified)
-                            {
-                                selectors[definition.Id].IsChecked = false;
-                            }
                         }
                         finally
                         {
@@ -3199,7 +3217,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
                             $"{title} - Apply selected",
                             $"Apply {changes.Count} selected tweak(s)? {plan.Selected.Count - changes.Count} already-applied item(s) will be skipped." +
                             Environment.NewLine + Environment.NewLine +
-                            string.Join(Environment.NewLine + Environment.NewLine, changes.Select(item => "• " + item.Name + (item.IsFeatureSwitch ? (targetOn ? ": ON" : ": OFF") : "") +
+                            string.Join(Environment.NewLine + Environment.NewLine, changes.Select(item => "• " + item.Name + Environment.NewLine + CatalogChangePreview(item, currentStates[item.Id], targetOn, restore: false) +
                                 Environment.NewLine + item.Description +
                                 (item.RestartRecommended ? Environment.NewLine + "Restart-sensitive: saved configuration is not proof of post-reboot effectiveness." : "") +
                                 (string.IsNullOrWhiteSpace(item.Warning) ? "" : Environment.NewLine + item.Warning))) +
@@ -3298,7 +3316,6 @@ namespace Naufal_Windows_Tech_s_Powertoys
                         if (result.Success && result.Verified)
                         {
                             succeeded++;
-                            selectors[definition.Id].IsChecked = false;
                             QueueCatalogRestart(definition, result);
                         }
                         else if (!result.SkippedUnavailable || !result.State.IsConfirmedUnavailable)
@@ -3356,6 +3373,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
 
                 stateLoadInProgress = true;
                 long scanEpoch = CatalogStateEpoch.Version;
+                lastScanAttempt = scanEpoch;
                 statesLoaded = false;
                 SetCatalogInteraction(false);
                 window.PrimaryButton.IsEnabled = false;
@@ -3423,7 +3441,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
                             ToolToggleState state = loadedStates[index];
                             currentStates[definition.Id] = state;
                             CheckBox selector = selectors[definition.Id];
-                            selector.IsChecked = false;
+                            if (!state.IsAvailable) selector.IsChecked = false;
                             selector.IsEnabled = state.IsAvailable;
                             ToggleSwitch toggle = toggles[definition.Id];
                             toggle.IsOn = state.IsOn;
@@ -3480,6 +3498,12 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 }
             }
 
+            search.TextChanged += (_, _) =>
+            {
+                UpdateStateFilter(scrollToTop: true);
+                UpdateSelectionSummary();
+            };
+            UpdateStateFilter();
             stateFilter.SelectionChanged += (_, _) =>
             {
                 if (applyInProgress || stateLoadInProgress || individualActionGate.IsBusy || updatingStateFilter) return;
@@ -3499,9 +3523,22 @@ namespace Naufal_Windows_Tech_s_Powertoys
             finally { CatalogStateEpoch.Changed -= OnCatalogStateChanged; }
         }
 
+        private static string CatalogChangePreview(ToolToggleDefinition item, ToolToggleState state, bool targetOn, bool restore, bool defaults = false)
+        {
+            string current = state.IsOn ? "applied" : state.HasAppliedParts ? "partially applied" : "not applied";
+            string target = restore ? (defaults ? "Windows default" : "saved configuration or documented default")
+                : !targetOn ? "OFF" : item.Id switch
+                {
+                    "Widgets" => "remove the Widgets package",
+                    "WindowsAI" => "apply the listed Windows AI restrictions",
+                    _ => item.IsFeatureSwitch ? "ON" : "apply this tweak"
+                };
+            return $"Current tweak: {current} · After confirmation: {target}";
+        }
+
         private static void UpdateCatalogStateText(TextBlock text, ToolToggleState state)
         {
-            text.Text = state.IsAvailable ? $"Actual: {state.ActualValue}"
+            text.Text = state.IsAvailable ? $"Current configuration: {state.ActualValue}"
                 : state.IsConfirmedUnavailable ? $"Unavailable: {state.Error}"
                 : $"Verification failed: {state.Error}";
             text.Foreground = new SolidColorBrush(state.IsAvailable
@@ -4613,10 +4650,16 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 {
                     gpuHeader.ChannelPicker.Items.Clear();
                     bool hadPreference = selectedChannels.TryGetValue(device.PnpDeviceId, out var preferred);
+                    var latest = catalog.Choices.GroupBy(c => c.Id).ToDictionary(group => group.Key,
+                        group => group.Max(c => Version.Parse(c.Release.Version)));
                     foreach (var choice in catalog.Choices)
                     {
+                        bool installedVersion = GpuDriverUpdates.Evaluate(device.Vendor, device.DriverVersion, device.DriverInstalled,
+                            choice.Release, catalog.CheckedAt).State == GpuUpdateState.UpToDate;
+                        string tag = Version.Parse(choice.Release.Version) == latest[choice.Id] ? "Latest in channel" : "Archive";
+                        if (installedVersion) tag += " · Matches installed version";
                         var item = new ComboBoxItem { Tag = choice,
-                            Content = new TextBlock { Text = $"{choice.Release.Version}  ·  {choice.Name}", TextWrapping = TextWrapping.Wrap } };
+                            Content = new TextBlock { Text = $"{choice.Release.Version}  ·  {choice.Name}  ·  {tag}", TextWrapping = TextWrapping.Wrap } };
                         gpuHeader.ChannelPicker.Items.Add(item);
                         if (hadPreference && (choice.Id, choice.Release.Version) == preferred) gpuHeader.ChannelPicker.SelectedItem = item;
                     }
@@ -4739,7 +4782,14 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 }
                 else if (!checking) releaseView.ShowNotChecked();
                 if (update?.State == GpuUpdateState.NewerInstalled) canInstall = false;
-                gpuHeader.InstallButton.IsEnabled = canInstall;
+                gpuHeader.Installed.Text = selected is null ? "Select a GPU" : $"{selected.Name}  ·  Installed driver: " +
+                    (selected.DriverInstalled ? GpuDriverUpdates.DisplayInstalledVersion(selected.Vendor, selected.DriverVersion) : "No vendor driver");
+                bool reviewOfficial = supported && !checking && !canInstall && choice is not null &&
+                    GpuDriverUpdates.IsOfficialSource(choice.Release.Source, selected!.Vendor);
+                if (gpuHeader.InstallButton.Content is TextBlock actionLabel)
+                    actionLabel.Text = canInstall ? $"Download & install {choice!.Release.Version}" :
+                        reviewOfficial ? (choice!.Id == GpuDriverChannel.GeForceHotfix ? "Open NVIDIA Hotfix details" : "Open release details") : "Download & install";
+                gpuHeader.InstallButton.IsEnabled = canInstall || reviewOfficial;
                 gpuHeader.RepairButton.IsEnabled = canInstall && selected!.DriverInstalled;
                 gpuHeader.ChannelPicker.IsEnabled = supported && !checking && gpuHeader.ChannelPicker.Items.Count > 0;
                 bool showQualcomm = selected?.Vendor == "Qualcomm" && Environment.OSVersion.Version.Build >= 22000 && GpuDriverService.IsSnapdragonX();
@@ -5012,7 +5062,22 @@ namespace Naufal_Windows_Tech_s_Powertoys
             refreshButton.Click += async (_, _) =>
                 await RefreshInventoryAsync(GetSelection()?.PnpDeviceId);
             gpuHeader.InstallButton.Click += async (_, _) =>
+            {
+                if (GetSelection() is not { } device || GetChoice() is not { } choice || gpuGate.IsBusy || checkingDevice is not null) return;
+                var comparison = GpuDriverUpdates.Evaluate(device.Vendor, device.DriverVersion, device.DriverInstalled, choice.Release, DateTimeOffset.Now);
+                if (choice.Release.DownloadUri is null || comparison.State == GpuUpdateState.NewerInstalled)
+                {
+                    try
+                    {
+                        if (!GpuDriverUpdates.IsOfficialSource(choice.Release.Source, device.Vendor) ||
+                            !await Windows.System.Launcher.LaunchUriAsync(choice.Release.Source))
+                            statusText.Text = "The official release page could not be opened.";
+                    }
+                    catch (Exception error) { statusText.Text = error.Message; }
+                    return;
+                }
                 await RunOperationAsync(GpuDriverOperationMode.InstallOrUpdate);
+            };
             gpuHeader.RepairButton.Click += async (_, _) =>
                 await RunOperationAsync(GpuDriverOperationMode.Repair);
 

@@ -7,6 +7,8 @@ namespace Naufal_Windows_Tech_s_Powertoys;
 // keep all three actions reachable at high text scale without a second footer.
 internal sealed partial class GpuDriverHeader : StackPanel
 {
+    internal TextBlock Installed { get; } = new() { Text = "Select a GPU", TextWrapping = TextWrapping.Wrap,
+        FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
     internal ComboBox ChannelPicker { get; } = new() { Header = "Driver version and release channel",
         PlaceholderText = "Checking available releases...", HorizontalAlignment = HorizontalAlignment.Stretch,
         HorizontalContentAlignment = HorizontalAlignment.Stretch, MaxDropDownHeight = 240, IsEnabled = false };
@@ -18,6 +20,7 @@ internal sealed partial class GpuDriverHeader : StackPanel
     {
         Spacing = 8;
         Margin = new Thickness(0, 0, 0, 12);
+        Children.Add(Installed);
         Children.Add(ChannelPicker);
         Children.Add(Actions);
         Button[] buttons = [CheckButton, RepairButton, InstallButton];

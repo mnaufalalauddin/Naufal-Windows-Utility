@@ -1,81 +1,29 @@
-# Naufal Windows Utility — Windows Debloat, Repair & Network Tools
+# Naufal Windows Utility
 
-[![Source version](https://img.shields.io/badge/Source_Version-v8.0.0.6-0567ff?style=for-the-badge)](CHANGELOG.md)
-[![Latest release](https://img.shields.io/badge/Latest_Release-v8.0.0.6-8250df?style=for-the-badge)](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.6)
-[![Windows target](https://img.shields.io/badge/Target-Windows_10_%2F_11_x64-0078d4?style=for-the-badge)](#quick-start)
-[![License](https://img.shields.io/badge/License-MIT-16803c?style=for-the-badge)](LICENSE)
-[![Interface](https://img.shields.io/badge/UI-English-8250df?style=for-the-badge)](#interface--project-status)
+**Find a Windows setting, see its current state, and choose what to change.** Naufal Windows Utility is an open-source Windows 10 and Windows 11 x64 desktop app for Windows debloat, gaming tweaks, Windows Update repair, GPU drivers and network settings.
 
-An open-source **Windows 10 / Windows 11 debloat and repair utility** with a native desktop interface. Review and remove selected built-in Windows apps, configure Windows tweaks, repair Windows Update components, inspect SMART disk health, check GPU drivers, and manage Ethernet/Wi-Fi IP and DNS settings—with confirmations and scoped recovery support.
+**[Download the Windows x64 installer](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/latest/download/Naufal-Windows-Utility-Setup-1.0.0.0-x64.exe)** · [Release notes and SHA-256](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/latest) · [Installation](#quick-start) · [Build from source](#build--develop)
 
-Looking for a **Windows debloater**, **Windows Update repair tool**, **Windows tweaks**, or an **IP/DNS network settings manager**? Explore the features below before making changes. Debloating means choosing individual apps/settings, not removing everything; performance improvements are not guaranteed. **Untuk pengguna Indonesia:** aplikasi open-source untuk debloat Windows, perbaikan komponen Windows, dan pengaturan jaringan. Antarmuka aplikasi menggunakan bahasa Inggris.
+| Start with | What you can do |
+| --- | --- |
+| **Search on Home** | Type a setting such as **Game Mode**, **Copilot** or **DNS**. Choose a suggestion to find its catalog row or reach its tool. |
+| **Live telemetry** | See CPU, memory, GPU 3D and network activity as soon as Home opens. |
+| **Windows debloat and tweaks** | Search within Essential, Gaming or Advanced, combine text with the ON/OFF filter, and review selected changes before applying them. |
+| **Repair and drivers** | Repair local Windows Update components, check supported GPU driver catalogs or open the vendor’s release page. |
+| **Network Settings Manager** | Review Ethernet and Wi-Fi settings, including IP addresses, gateways and DNS. [Network validation coverage](docs/network-acceptance-status.md) |
 
-Developed by **Muhammad Naufal Alauddin**. Independent, open-source, and under active development. **Not affiliated with Microsoft or Microsoft PowerToys.**
+**Version 1.0.0.0 starts a new numbering series following 8.0.0.6.** This release also refreshes tweak status after Apply or Restore and keeps the result of a De-bloat Workspace action beside its control. Read the [changelog](CHANGELOG.md) for previous releases and [verification notes](docs/verification-8.0.0.5.md) for test limitations.
 
-**[Download v8.0.0.6](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.6)** · [Features](#whats-included) · [Release notes](CHANGELOG.md) · [Build from source](#build--develop) · [Changelog](CHANGELOG.md)
+**Bahasa Indonesia** · Cari setelan Windows dari Home, lihat pemakaian CPU dan RAM, atau pilih aplikasi bawaan yang ingin dihapus. Antarmuka aplikasi menggunakan bahasa Inggris.
 
-> **Introduced in v8.0.0.2 — De-bloat Workspace**
-> Six inline panels add individual AI controls, desktop/OEM apps, startup and
-> background controls, reinstalled-app detection, and provisioning for new accounts.
-> **Preview, not universal certification:** new live VM acceptance is pending.
-> Online stuck-download recovery and physical Intel RST / ASM2362 / RTL9210
-> validation also remain outstanding. Read the [release limitations](docs/release-8.0.0.2.md).
+## Home preview
 
-## Current release: v8.0.0.6
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/home-1.0-dark.png">
+  <img src="docs/images/home-1.0-light.png" alt="Home search above CPU, memory, GPU and network telemetry in Naufal Windows Utility">
+</picture>
 
-GPU Driver Manager lists GeForce Hotfix announcements from NVIDIA Support and provides version selection for supported driver catalogs. De-bloat Workspace refreshes available actions after changes and preserves the registered NVIDIA PhysX uninstaller command format.
-
-Workspace actions now show
-nearby feedback and eligibility reasons; registered uninstaller parsing includes
-guarded NVIDIA InstallerCore support. Short-window layouts keep tool actions
-reachable by scrolling/reflow, including 1366×768-class displays and smaller
-tested windows. See the [changelog](CHANGELOG.md) for test scope and remaining live acceptance.
-The 24 October audit additionally fixes shared-page scroll carryover, late
-progress overwriting final results, missing-app outcome reporting and registry
-transaction preflight/drift checks. This is not a claim that every bug or every
-hardware-specific workflow has been verified.
-
-On 25 October, a disposable VirtualBox guest confirmed that v8.0.0.4 launches
-Chrome's real uninstaller and detects its removed registration afterward.
-Windows Update Fix then exposed a real `cryptsvc` stop error 1051 (running
-dependent services). The v8.0.0.5 candidate handles this narrowly: reset the
-SoftwareDistribution caches while leaving `catroot2` and dependent services
-untouched, and report **Partial repair**, never full success. Access-denied,
-timeout and unreadable-state errors still fail safely. Online download recovery,
-AI/startup behavior and physical storage-controller acceptance remain separate
-tests, not implied by this fix. The limited fallback was then verified live in
-the VM. A 27 October inspection found Windows Update up to date and KB5127694
-recorded as successfully installed on 25 October; the install was not directly
-observed and cannot be attributed to the repair. A controlled stuck-download
-recovery test remains outstanding. One controlled Pause/Resume cycle on
-27 October also completed its update scan successfully, with no offered
-download; the reported post-resume failure was not reproduced.
-See [VM evidence](docs/verification-8.0.0.5.md).
-
-### De-bloat workspace (introduced in v8.0.0.2)
-
-Open **Advanced Windows Tweaks → De-bloat workspace** for inline individual AI controls, desktop/OEM app inventory
-and registered uninstallers, scoped startup management, per-app background policy,
-verified-removal/reinstallation detection, and guarded provisioning management for
-new Windows accounts. See [behavior, recovery and limitations](docs/debloat-workspace.md).
-These additions are included in the current **v8.0.0.6 installer**.
-Live VM acceptance remains separate from compilation and simulated tests.
-
-
-### Dark Mode
-
-![Naufal Windows Utility — Dark Mode, 28 September 2026](docs/images/dashboard-dark-20260928-012955.png)
-
-### Light Mode
-
-<details>
-<summary>View the Light Mode dashboard</summary>
-
-![Naufal Windows Utility — Light Mode, 28 September 2026](docs/images/dashboard-light-20260928-012935.png)
-
-</details>
-
-*Light and Dark screenshots supplied by the maintainer on 28 September 2026 at 01:29. Home shows About, Task Monitoring, and Exit; restart-sensitive changes instead offer “Restart now” or “Later” after active tasks finish. Profile and system-status values reflect the PC when captured, not recommended settings or guaranteed results. Scroll Home for quick actions, telemetry, and technical details.*
+*Rendered from the Windows interface in an isolated test. Metric values populate on a running PC.*
 
 ### GPU Driver Manager — new shared header
 
@@ -98,7 +46,7 @@ data; they are not live update results or a screenshot of the complete inventory
 
 > **Back up important data before applying tweaks.** System-changing operations may require Administrator privileges. Review each option's warning; do not apply every tweak indiscriminately.
 
-1. Open the [latest v8.0.0.6 release](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.6) and download `Naufal-Windows-Utility-Setup-8.0.0.6-x64.exe`. Compare its SHA-256 with the attached `SHA256SUMS.txt`. Alternatively, [build from source](#build--develop).
+1. Open the [latest v1.0.0.0 release](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v1.0.0.0) and download `Naufal-Windows-Utility-Setup-1.0.0.0-x64.exe`. Compare its SHA-256 with the attached `SHA256SUMS.txt`. Alternatively, [build from source](#build--develop).
 2. Run the installer, open **Naufal Windows Utility**, and review the first-run prerequisites.
 3. Choose a catalog or performance profile, read its description, and apply only the changes you need.
 4. Read analysis results inline in the tool window; Apply/Restore operations retain their separate progress and verification results. For completed changes marked restart-sensitive, the app offers **Restart now** or **Later** after active tasks finish. Save your work before accepting. Choosing Later does not schedule a reboot; restart from Windows when convenient.
@@ -429,7 +377,7 @@ The project file retains its historical filename. Passing tests is not proof tha
 
 ## Interface & Project Status
 
-**Current release: [v8.0.0.6](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.6).**
+**Current release: [v1.0.0.0](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v1.0.0.0).**
 This release includes the De-bloat workspace reliability and small-window fixes,
 guarded registered-uninstaller handling, and the narrowly scoped Windows Update
 1051 fallback. See [release verification and limitations](docs/verification-8.0.0.5.md).
@@ -466,10 +414,9 @@ report-export checks**. Read-only Native AOT probes successfully read two NVMe
 SSDs and 27 ATA attributes from one USB drive. The USB drive's overall SMART
 health remained Unknown when the driver could not confirm it. These results do
 not certify every controller, Windows version, or system-changing operation.
-Application version is now **v8.0.0.2**. Earlier builds and their
-verification history remain intact; their test results are not new v8.0.0.2 tests.
+Earlier verification results are recorded under their original version numbers in the changelog.
 
-The [28 September refresh build](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.0-build.20260928.2)
+The [28 September refresh build](docs/releases/2026-09-28.2.md)
 includes neutral SMART report wording, the latest Light/Dark README previews,
 and updated documentation. Device calculations and read-only command behavior
 are unchanged from the earlier disk-health build. Third-party copyright and

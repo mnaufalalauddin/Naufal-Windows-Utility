@@ -1,6 +1,6 @@
 # Naufal Windows Utility — Changelog
 
-Development history from **30 August 2026** through **24 November 2026**.
+Development history from **30 August 2026** through **25 November 2026**.
 
 **Original history snapshot:** 12 September 2026, 00:39:41 WIB (Asia/Jakarta, UTC+07:00).
 Later development entries are appended below with their own dates.
@@ -21,6 +21,14 @@ mutation, complete visual validation, or full behavioral parity.
 Historical report filenames identify the records used when this history was
 assembled. Reports not included in this repository are shown as plain references,
 not download links; private backups and raw machine evidence are not published.
+
+## 25 November 2026 — v1.0.0.0
+
+- Restarted release numbering after v8.0.0.6. The installer retains the application's existing identity and snapshot locations.
+- Added Home search for tools and catalog options. Essential, Gaming and Advanced catalogs support live text filtering alongside the existing state filter.
+- Moved live CPU, memory, GPU and network charts to the top of Home.
+- Tweak dialogs automatically reread configuration after Apply or Restore and retain eligible selections. Group actions, confirmation previews and in-place workspace results make the current operation easier to review.
+- GPU Driver Manager identifies the installed version and selected release. Windows Update Fix links directly to Windows Update for a download retry.
 
 ## 24 November 2026 — v8.0.0.6
 

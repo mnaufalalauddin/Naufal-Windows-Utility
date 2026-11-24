@@ -23,6 +23,16 @@ $routes = [ordered]@{
     Debloat = 'Advanced Windows Tweaks & De-Bloat'; MsiModeUtility = 'MSI Mode Utility'
     LegacyWindowsPanels = 'Legacy Windows Panels'
 }
+$search = Get-Content -LiteralPath (Join-Path $root 'MainWindow.Search.cs') -Raw
+$charts = $window.SelectSingleNode('//*[local-name()="Grid" and @*[local-name()="Name"]="LiveChartsGrid"]')
+Assert ($charts.ParentNode.GetAttribute('Name', 'http://schemas.microsoft.com/winfx/2006/xaml') -eq 'HomePage') 'live charts are directly visible on Home'
+foreach ($catalog in 'EssentialTweaks','GamingTweaks','Debloat') {
+    Assert ($search.Contains("Open${catalog}Async);")) "Home search routes to $catalog"
+}
+Assert ($main.Contains('IsVisibleOption(definition) && selectors[definition.Id].IsChecked == true')) 'hidden search results cannot enter bulk review'
+Assert ($main.Contains('showActions && MatchesSearch(search.Text, action.Name')) 'text search includes action-only tools'
+Assert ($search.Contains('if (hit is null) return;')) 'empty search does not navigate'
+
 $buttons = @($window.SelectNodes('//*[local-name()="Button"]'))
 $pageForRoute = @{
     FullRepair='RepairPage'; QuickRepair='RepairPage'; WindowsUpdateFix='RepairPage'; MicrosoftStoreFix='RepairPage'; ExplorerFix='RepairPage'
@@ -69,4 +79,9 @@ Assert ($progress.Contains('_overallBar.IsIndeterminate = _progress.IsOverallInd
 Assert ($progress.Contains('UpdateOverall(_progress.Settled, update.Detail);')) 'live detail also updates export summary'
 Assert ($progress.Contains('_progress.HasFailures ? FailureBrush() : WorkingBrush()')) 'overall failures remain red while tasks continue'
 Assert ($progress.Contains('_overallBar.IsIndeterminate = false;')) 'terminal overall stops animating'
+$invalidation = [regex]::Match($main, '(?s)void InvalidateCatalogView\(\)(.*?)void OnCatalogStateChanged').Groups[1].Value
+Assert ($invalidation.Contains('_ = LoadCatalogStatesAsync();')) 'stale catalogs automatically rescan after a change'
+Assert ($invalidation.Contains('lastScanAttempt == CatalogStateEpoch.Version')) 'failed scans do not trigger an endless retry'
+Assert ([regex]::Matches($main, '(?s)applyInProgress = false;\s+SetCatalogInteraction\(true\);\s+UpdateSelectionSummary\(\);\s+analyzeButton.IsEnabled = true;\s+InvalidateCatalogView\(\);').Count -eq 2) 'both apply and restore release their lock before refreshing'
+Assert ($main.Contains('if (!state.IsAvailable) selector.IsChecked = false;')) 'still-available selections survive automatic refresh'
 Write-Output "PASS: $count static button/routing/progress assertions. Native layout and clicks are not certified."

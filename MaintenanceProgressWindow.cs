@@ -70,7 +70,8 @@ namespace Naufal_Windows_Tech_s_Powertoys
             Window owner,
             string title,
             string subtitle,
-            IReadOnlyList<string> stages)
+            IReadOnlyList<string> stages,
+            bool offerWindowsUpdateRetry = false)
         {
             _operationTitle = title;
             _stages = stages;
@@ -247,12 +248,26 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 owner,
                 title,
                 _contentRoot,
+                primaryButtonText: offerWindowsUpdateRetry ? "Open Windows Update to retry" : null,
                 secondaryButtonText: "Copy log",
                 closeButtonText: "Close",
                 initialWidth: 980,
                 initialHeight: 760,
                 minimumWidth: 700,
                 minimumHeight: 560);
+            if (offerWindowsUpdateRetry)
+            {
+                _window.PrimaryButton.IsEnabled = false;
+                _window.PrimaryButton.Click += async (_, _) =>
+                {
+                    try
+                    {
+                        if (!await Windows.System.Launcher.LaunchUriAsync(new Uri("ms-settings:windowsupdate")))
+                            _resultText.Text += "\nOpen Settings → Windows Update to retry the download.";
+                    }
+                    catch (Exception error) { _resultText.Text += "\nCould not open Windows Update: " + error.Message; }
+                };
+            }
             _window.CloseButton.IsEnabled = false;
             _window.IsBusy = () => !_completed;
             _window.SecondaryButton.IsEnabled = false;
@@ -351,6 +366,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
             }
 
             _window.CloseButton.IsEnabled = true;
+            if (_window.PrimaryButton.Visibility == Visibility.Visible) _window.PrimaryButton.IsEnabled = true;
             _window.SecondaryButton.IsEnabled = _liveOutput.Length > 0;
         }
 
