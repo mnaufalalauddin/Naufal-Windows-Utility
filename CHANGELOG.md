@@ -1,6 +1,6 @@
 # Naufal Windows Utility — Changelog
 
-Development history from **30 August 2026** through **16 November 2026**.
+Development history from **30 August 2026** through **24 November 2026**.
 
 **Original history snapshot:** 12 September 2026, 00:39:41 WIB (Asia/Jakarta, UTC+07:00).
 Later development entries are appended below with their own dates.
@@ -21,6 +21,12 @@ mutation, complete visual validation, or full behavioral parity.
 Historical report filenames identify the records used when this history was
 assembled. Reports not included in this repository are shown as plain references,
 not download links; private backups and raw machine evidence are not published.
+
+## 24 November 2026 — v8.0.0.6
+
+- GPU Driver Manager discovers GeForce Hotfix announcements from NVIDIA Support, shows release history, and retains the selected channel and version per adapter. Hotfix and archived Intel entries link to the vendor's release details. Snapdragon X uses the version selector in Qualcomm Software Center.
+- De-bloat Workspace loads a section when expanded, refreshes actions after changes, and preserves NVIDIA InstallerCore quoting for PhysX uninstall commands.
+- Verification covered the x64 Release build, 182 GPU assertions and 126 workspace assertions. The host GPU catalog returned Hotfix versions 621.35 and 616.86. PhysX command resolution was checked without uninstalling the host software. Physical Snapdragon X behavior remains unverified.
 
 ## 16 November 2026 — v8.0.0.5 published
 

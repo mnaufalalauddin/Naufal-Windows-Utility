@@ -29,7 +29,7 @@ internal sealed record GpuDriverUpdate(GpuUpdateState State, GpuDriverRelease? R
         {
             var published = Release is null ? (Date: "Not verified", Time: "Not verified")
                 : GpuDriverUpdates.FormatReleaseDate(Release.ReleaseDate);
-            return $"Latest catalog version: {Release?.Version ?? "Not verified"}\n" +
+            return $"Selected catalog version: {Release?.Version ?? "Not verified"}\n" +
                 $"Release date: {published.Date}\nRelease time: {published.Time}\n" +
                 (Release is null ? "" : $"Channel: {Release.Channel}\nSource: {Release.Source}\n") +
                 $"Checked at: {CheckedAt.ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture)} (local time; not release time)\n" +
@@ -64,7 +64,8 @@ internal static class GpuDriverUpdates
     internal static bool IsOfficialSource(Uri uri, string vendor)
     {
         if (uri.Scheme != Uri.UriSchemeHttps || !uri.IsDefaultPort || uri.UserInfo.Length > 0) return false;
-        string[] roots = vendor switch { "NVIDIA" => ["nvidia.com", "geforce.com"], "Intel" => ["intel.com"], "AMD" => ["amd.com"], _ => [] };
+        string[] roots = vendor switch { "Qualcomm" => ["qualcomm.com"], "NVIDIA" => ["nvidia.com", "geforce.com"], "Intel" => ["intel.com"], "AMD" => ["amd.com"], _ => [] };
+        if (vendor == "NVIDIA" && uri.IdnHost == "nvidia.custhelp.com") return true;
         return roots.Any(root => uri.IdnHost.Equals(root, StringComparison.OrdinalIgnoreCase) ||
             uri.IdnHost.EndsWith("." + root, StringComparison.OrdinalIgnoreCase));
     }
@@ -110,7 +111,8 @@ internal static class GpuDriverUpdates
         Match version = Match(text, @"(?:Graphics\s+Driver|Driver|Version)\s*:?\s*(\d+\.\d+\.\d+\.\d+)\b");
         if (!version.Success) return null;
         Match date = Match(text, @"\b(?:Release\s+Date|Date)\s*:?\s*(\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2}|[A-Za-z]+ \d{1,2}, \d{4})\b");
-        return new(version.Groups[1].Value, date.Success ? date.Groups[1].Value : "", source,
+        Match headerDate = Match(text, @"Version\s+" + Regex.Escape(version.Groups[1].Value) + @"(?:\s+WHQL Certified)?\s+([A-Za-z]+ \d{1,2}, \d{4})\s+ID");
+          return new(version.Groups[1].Value, headerDate.Success ? headerDate.Groups[1].Value : date.Success ? date.Groups[1].Value : "", source,
             family + " / vendor generic Windows graphics", [version.Groups[1].Value],
             "The PC manufacturer may supply a customized OEM driver. Verify the supported products and operating system before installation.");
     }
@@ -125,15 +127,18 @@ internal static class GpuDriverUpdates
         return new Uri($"https://www.amd.com/en/support/downloads/drivers.html/graphics/radeon-rx/radeon-rx-{number[0]}000-series/amd-radeon-rx-{number}{suffix}.html");
     }
 
-    internal static GpuDriverRelease? ParseAmd(string html, Uri source, string gpuName, bool windows11 = true, bool? optional = null)
+    internal static GpuDriverRelease? ParseAmd(string html, Uri source, string gpuName, bool windows11 = true, bool? optional = null) =>
+        ParseAmdHistory(html, source, gpuName, windows11, optional).FirstOrDefault();
+
+    internal static IReadOnlyList<GpuDriverRelease> ParseAmdHistory(string html, Uri source, string gpuName, bool windows11, bool? optional)
     {
         string title = Compact(Match(html, @"<h1\b[^>]*>(.*?)</h1>").Groups[1].Value);
         string Normalize(string value) => Regex.Replace(value.ToUpperInvariant().Replace("AMD", "").Replace("(TM)", ""), @"[^A-Z0-9]", "");
         string titleModel = Regex.Split(title, @"\s+Drivers\b", RegexOptions.IgnoreCase)[0];
-        if (Normalize(titleModel) != Normalize(gpuName)) return null;
+        if (Normalize(titleModel) != Normalize(gpuName)) return [];
         // Only the matching OS section, not Linux, another Windows section, or Auto-Detect.
         Match section = Match(html, @"Windows\s+" + (windows11 ? "11" : "10") + @"\s*-\s*64-Bit\s+Edition(.*?)(?:Windows\s+\d+\s*-\s*64-Bit\s+Edition|Linux\s*x86|Ubuntu|</main>)");
-        if (!section.Success) return null;
+        if (!section.Success) return [];
         var releases = new List<GpuDriverRelease>();
         foreach (Match article in Matches(section.Groups[1].Value, @"<article\b[^>]*>.*?</article>"))
         {
@@ -144,7 +149,7 @@ internal static class GpuDriverUpdates
             Match version = Match(text, @"Revision Number\s+Adrenalin\s+(\d+\.\d+\.\d+)\b");
             Match date = Match(text, @"Release Date\s+(\d{4}-\d{2}-\d{2})\b");
             Match notes = Match(article.Value, @"href=[""']([^""']*?/release-notes/RN-RAD-WIN-[^""']+)[""']");
-            if (!version.Success || !notes.Success || !text.Contains("WHQL", StringComparison.OrdinalIgnoreCase) ||
+            if (!version.Success || !notes.Success || (!isOptional && !text.Contains("WHQL", StringComparison.OrdinalIgnoreCase)) ||
                 !Uri.TryCreate(source, WebUtility.HtmlDecode(notes.Groups[1].Value), out var uri) || !IsOfficialSource(uri, "AMD")) continue;
             // Require notes for this exact package, not a nearby article's release.
             if (!uri.AbsolutePath.EndsWith("RN-RAD-WIN-" + version.Groups[1].Value.Replace('.', '-') + ".html", StringComparison.OrdinalIgnoreCase)) continue;
@@ -154,10 +159,10 @@ internal static class GpuDriverUpdates
                     u.AbsolutePath.Contains("adrenalin-edition-" + version.Groups[1].Value + "-", StringComparison.OrdinalIgnoreCase) &&
                     !u.AbsolutePath.Contains("minimalsetup", StringComparison.OrdinalIgnoreCase));
             releases.Add(new(version.Groups[1].Value, date.Groups[1].Value, uri,
-                "AMD Adrenalin / WHQL " + (text.Contains("Optional", StringComparison.OrdinalIgnoreCase) ? "Optional" : "Recommended") + $" (Windows {(windows11 ? "11" : "10")} x64)", [],
+                "AMD Adrenalin / " + (text.Contains("Optional", StringComparison.OrdinalIgnoreCase) ? "Optional" : "Recommended") + $" (Windows {(windows11 ? "11" : "10")} x64)", [],
                 "AMD Adrenalin package versions are not Windows Driver Store versions.", download));
         }
-        return releases.OrderByDescending(release => Version.Parse(release.Version)).FirstOrDefault();
+        return releases.OrderByDescending(release => Version.Parse(release.Version)).ToArray();
     }
 
     internal static GpuDriverRelease AddAmdDriverVersions(GpuDriverRelease release, string notes)

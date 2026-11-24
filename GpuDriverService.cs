@@ -416,15 +416,25 @@ namespace Naufal_Windows_Tech_s_Powertoys
         {
             List<GpuDriverEntry> entries = new();
             bool portable = IsPortableSystem();
-            using RegistryKey? pci = OpenLocalMachineKey(PciRoot);
+            ReadBus(entries, portable, "PCI");
+            if (RuntimeInformation.OSArchitecture == Architecture.Arm64) ReadBus(entries, portable, "ACPI");
+            return entries.GroupBy(item => item.PnpDeviceId, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First()).OrderBy(item => item.Vendor, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(item => item.Name, StringComparer.OrdinalIgnoreCase).ToArray();
+
+        }
+
+        private static void ReadBus(List<GpuDriverEntry> entries, bool portable, string bus)
+        {
+            using RegistryKey? pci = OpenLocalMachineKey(bus == "PCI" ? PciRoot : @"SYSTEM\CurrentControlSet\Enum\ACPI");
             if (pci is null)
             {
-                return entries;
+                return;
             }
 
             foreach (string hardwareId in pci.GetSubKeyNames())
             {
-                string vendor = GetVendor(hardwareId);
+                string vendor = bus == "ACPI" && (hardwareId.StartsWith("QCOM", StringComparison.OrdinalIgnoreCase) || hardwareId.StartsWith("VEN_QCOM", StringComparison.OrdinalIgnoreCase)) ? "Qualcomm" : GetVendor(hardwareId);
                 if (string.IsNullOrWhiteSpace(vendor))
                 {
                     continue;
@@ -437,7 +447,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
 
                 foreach (string instance in hardware.GetSubKeyNames())
                 {
-                    string pnpDeviceId = $@"PCI\{hardwareId}\{instance}";
+                    string pnpDeviceId = $@"{bus}\{hardwareId}\{instance}";
                     if (!TryReadDeviceStatus(pnpDeviceId, out uint deviceInstance, out uint status, out uint problemCode))
                     {
                         continue;
@@ -501,13 +511,6 @@ namespace Naufal_Windows_Tech_s_Powertoys
                         portable));
                 }
             }
-
-            return entries
-                .GroupBy(item => item.PnpDeviceId, StringComparer.OrdinalIgnoreCase)
-                .Select(group => group.First())
-                .OrderBy(item => item.Vendor, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
-                .ToArray();
         }
 
         private static bool IsDisplayDevice(RegistryKey device)
@@ -632,7 +635,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
 
         internal static void ConfigureCatalogRequest(HttpRequestMessage request, string vendor, bool downloadOnly)
         {
-            if (vendor != "Intel" || downloadOnly) return;
+            if (downloadOnly || (vendor != "Intel" && request.RequestUri?.Host != "nvidia.custhelp.com")) return;
             // Intel's HTML catalog requires explicit content/language negotiation
             // on some CDN routes. These public English pages feed English parsers.
             // No browser cookies, credentials, UA impersonation or proxy fallback.
@@ -649,7 +652,8 @@ namespace Naufal_Windows_Tech_s_Powertoys
             string host = uri.DnsSafeHost.TrimEnd('.').ToLowerInvariant();
             return vendor switch
             {
-                "NVIDIA" => HostIsOrSubdomain(host, "nvidia.com") ||
+                "Qualcomm" => host == "softwarecenter.qualcomm.com",
+                "NVIDIA" => host == "nvidia.custhelp.com" || HostIsOrSubdomain(host, "nvidia.com") ||
                             HostIsOrSubdomain(host, "geforce.com"),
                 "AMD" => HostIsOrSubdomain(host, "amd.com"),
                 "Intel" => HostIsOrSubdomain(host, "intel.com"),
@@ -885,8 +889,16 @@ namespace Naufal_Windows_Tech_s_Powertoys
             return int.TryParse(digits[..1], out int first) ? first : 0;
         }
 
+        internal static bool IsSnapdragonX()
+        {
+            if (RuntimeInformation.OSArchitecture != Architecture.Arm64) return false;
+            using var cpu = OpenLocalMachineKey(@"HARDWARE\DESCRIPTION\System\CentralProcessor\0");
+            return Regex.IsMatch(ReadString(cpu, "ProcessorNameString"), @"Snapdragon(?:\(R\)|®|™)?\s+X", RegexOptions.IgnoreCase);
+        }
+
         private static string GetVendor(string hardwareId)
         {
+            if (hardwareId.Contains("VEN_17CB", StringComparison.OrdinalIgnoreCase)) return "Qualcomm";
             if (hardwareId.Contains("VEN_10DE", StringComparison.OrdinalIgnoreCase)) return "NVIDIA";
             if (hardwareId.Contains("VEN_8086", StringComparison.OrdinalIgnoreCase)) return "Intel";
             if (hardwareId.Contains("VEN_1002", StringComparison.OrdinalIgnoreCase)) return "AMD";
@@ -898,6 +910,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
             "NVIDIA" => "https://www.nvidia.com/en-us/drivers/",
             "Intel" => "https://www.intel.com/content/www/us/en/download-center/home.html",
             "AMD" => "https://www.amd.com/en/support/download/drivers.html",
+            "Qualcomm" => "https://softwarecenter.qualcomm.com/catalog/item/Windows_Graphics_Driver?osArch=ARM64&osType=Windows",
             _ => "https://support.microsoft.com/windows"
         };
 
@@ -928,6 +941,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
                          provider.Contains("AMD", StringComparison.OrdinalIgnoreCase) ||
                          provider.Contains("ATI", StringComparison.OrdinalIgnoreCase) ||
                          windowsName.Contains("Radeon", StringComparison.OrdinalIgnoreCase),
+                "Qualcomm" => provider.Contains("Qualcomm", StringComparison.OrdinalIgnoreCase),
                 "Intel" => provider.Contains("Intel", StringComparison.OrdinalIgnoreCase) ||
                            windowsName.Contains("Intel", StringComparison.OrdinalIgnoreCase) ||
                            windowsName.Contains("Iris", StringComparison.OrdinalIgnoreCase) ||

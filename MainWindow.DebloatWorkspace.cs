@@ -15,6 +15,7 @@ public sealed partial class MainWindow
     private readonly List<Control> _debloatWorkspacePanels = [];
     private readonly Dictionary<string, string> _desktopUninstallLaunched = [];
     private TextBlock? _workspaceActionFeedback;
+    private readonly Dictionary<TextBlock, Func<Task>> _workspaceRefresh = [];
 
     private static TextBlock WorkspaceText(string text) => DebloatWorkspaceView.Text(text);
 
@@ -39,12 +40,23 @@ public sealed partial class MainWindow
         var section = new DebloatWorkspaceSection(title, description);
         var panel = section.Panel; var rows = section.Rows; var status = section.Status; var reload = section.Reload;
         _debloatWorkspacePanels.Add(reload); _debloatWorkspacePanels.Add(section.Viewer);
-        reload.Click += async (_, _) => await WorkspaceRun(status, async () =>
+        bool loaded = false;
+        async Task Refresh()
         {
+            // Keep the previous inventory visible if reading Windows fails.
+            var inventory = new StackPanel { Spacing = rows.Spacing };
+            await load(inventory, status);
             rows.Children.Clear();
-            await load(rows, status);
+            rows.Children.Add(inventory);
             UiDisplaySettings.Apply(panel);
-        });
+            loaded = true;
+        }
+        _workspaceRefresh.Add(status, Refresh);
+        reload.Click += async (_, _) => await WorkspaceRun(status, Refresh);
+        section.View.Expanding += async (_, _) =>
+        {
+            if (!loaded && !_debloatWorkspaceBusy) await WorkspaceRun(status, Refresh);
+        };
         AdvancedPage.Children.Add(section.View);
     }
 
@@ -69,7 +81,14 @@ public sealed partial class MainWindow
             }
             status.Text = "Working…";
             await action();
-            lease?.Complete(status.Text == "Cancelled." ? "CANCELLED" : outcome?.Invoke() ?? "COMPLETED", status.Text);
+            string result = status.Text;
+            bool cancelled = result == "Cancelled.";
+            lease?.Complete(cancelled ? "CANCELLED" : outcome?.Invoke() ?? "COMPLETED", result);
+            if (confirmation is not null && !cancelled && _workspaceRefresh.TryGetValue(status, out var refresh))
+            {
+                try { await refresh(); status.Text = result + "\n" + status.Text; }
+                catch (Exception error) { status.Text = result + "\nCould not refresh the inventory: " + error.Message; }
+            }
         }
         catch (Exception exception)
         {
@@ -82,7 +101,7 @@ public sealed partial class MainWindow
             _debloatWorkspaceBusy = false;
             foreach (var panel in _debloatWorkspacePanels) panel.IsEnabled = true;
             status.UnregisterPropertyChangedCallback(TextBlock.TextProperty, callback);
-            feedback?.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false, VerticalAlignmentRatio = 0.5 });
+            (feedback?.IsLoaded == true ? feedback : status).StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false, VerticalAlignmentRatio = 0.5 });
             RefreshManagedTaskHeader();
         }
     }
@@ -147,7 +166,7 @@ public sealed partial class MainWindow
                 WorkspaceButton(card, restore ? "Restore original policy" : state.ApplyLabel, () => WorkspaceRun(status, async () =>
                 {
                     await Task.Run(() => _debloatWorkspace.ChangeAi(control, restore));
-                    status.Text = "Configuration read-back verified. " + control.Warning + " Reload to see the current state.";
+                    status.Text = "Configuration read-back verified. " + control.Warning + "";
                 }, control.Name + ": " + control.Warning + "\nScope: all Windows accounts. Original policy snapshot is retained before changes.",
                     restore ? "Restore original policy" : "Disable " + control.Name), restore ? state.RestoreBlock is null : state.ApplyBlock is null);
         }
@@ -200,7 +219,7 @@ public sealed partial class MainWindow
             WorkspaceButton(card, saved ? "Restore original registration (keep Windows approval)" : "Disable startup registration", () => WorkspaceRun(status, async () =>
             {
                 await Task.Run(() => _debloatWorkspace.ChangeStartup(app, saved));
-                status.Text = "Startup registration read-back verified. A running app was not stopped. Reload the list; next-sign-in behavior has not been tested.";
+                status.Text = "Startup registration read-back verified. A running app was not stopped.";
             }, $"{app.Name}\n{app.Command}\nScope: this Windows account's Run registration. Disabling may stop sync, notifications or vendor utilities at sign-in. Restore uses the exact saved registration, not guessed defaults.",
                 saved ? "Restore startup" : "Disable startup"), app.BlockReason is null);
         }
@@ -230,16 +249,24 @@ public sealed partial class MainWindow
             CheckBox check = new() { Content = WorkspaceText("Deny background activity"), IsEnabled = app.BlockReason is null };
             card.Children.Add(check); choices.Add((check, app.Family));
         }
-        WorkspaceButton(rows, "Deny background for selected apps", () => WorkspaceRun(status, async () =>
+        var deny = WorkspaceButton(rows, "Deny background for selected apps", () => WorkspaceRun(status, async () =>
         {
             string[] selected = choices.Where(c => c.Check.IsChecked == true).Select(c => c.Family).ToArray();
             await Task.Run(() => _debloatWorkspace.ChangeBackground(selected, false));
             status.Text = "Background deny list read-back verified. Restart affected apps. Restore this selection before applying a different selection.";
         }, "Deny background activity for the selected packages across ALL Windows accounts? Notifications, sync, alarms and transfers may stop. This does not stop desktop processes. Existing policy owners are not overridden.", "Deny selected"));
+        bool canDeny = !_debloatWorkspace.HasSnapshot("background");
+        deny.IsEnabled = false;
+        foreach (var choice in choices)
+        {
+            void UpdateDeny(object sender, RoutedEventArgs args) => deny.IsEnabled = canDeny && choices.Any(c => c.Check.IsChecked == true);
+            choice.Check.Checked += UpdateDeny;
+            choice.Check.Unchecked += UpdateDeny;
+        }
         WorkspaceButton(rows, "Restore original background list", () => WorkspaceRun(status, async () =>
         {
             await Task.Run(() => _debloatWorkspace.ChangeBackground([], true));
-            status.Text = "Original background deny list restored and verified. Restart affected apps, then reload.";
+            status.Text = "Original background deny list restored and verified. Restart affected apps.";
         }, "Restore the exact original background deny list saved by this workspace? External changes block restoration instead of being overwritten.", "Restore background"), _debloatWorkspace.HasSnapshot("background"));
         status.Text = $"{apps.Count(a => a.BlockReason is null)}/{apps.Length} packages declare supported background tasks. " +
             (_debloatWorkspace.HasSnapshot("background") ? "Utility snapshot exists; restore before changing the selection." : "No utility background snapshot.");

@@ -21,7 +21,9 @@ internal sealed class DebloatWorkspaceSection
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         Panel.Children.Add(DebloatWorkspaceView.Text(description));
         Panel.Children.Add(Reload); Panel.Children.Add(Status); Panel.Children.Add(Viewer);
-        View = new Expander { Header = DebloatWorkspaceView.Text(title), Content = Panel,
+        var heading = DebloatWorkspaceView.Text(title);
+        heading.IsHitTestVisible = false;
+        View = new Expander { Header = heading, Content = Panel,
             HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch };
         FrameworkElement? windowRoot = null;
         void ResizeInventory(object? sender, SizeChangedEventArgs args) => FitInventory();
@@ -51,7 +53,7 @@ internal static class DebloatWorkspaceView
     { Text = text, TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true };
     internal static Button Button(string text)
     {
-        var label = Text(text); label.IsTextSelectionEnabled = false;
+        var label = Text(text); label.IsTextSelectionEnabled = false; label.IsHitTestVisible = false;
         label.TextAlignment = TextAlignment.Center;
         // Explicit geometry is captured before attachment by the scale manager;
         // do not depend on an implicit style that is resolved later in the tree.

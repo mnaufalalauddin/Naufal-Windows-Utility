@@ -1,7 +1,7 @@
 # Naufal Windows Utility — Windows Debloat, Repair & Network Tools
 
-[![Source version](https://img.shields.io/badge/Source_Version-v8.0.0.5-0567ff?style=for-the-badge)](CHANGELOG.md)
-[![Latest release](https://img.shields.io/badge/Latest_Release-v8.0.0.5-8250df?style=for-the-badge)](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.5)
+[![Source version](https://img.shields.io/badge/Source_Version-v8.0.0.6-0567ff?style=for-the-badge)](CHANGELOG.md)
+[![Latest release](https://img.shields.io/badge/Latest_Release-v8.0.0.6-8250df?style=for-the-badge)](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.6)
 [![Windows target](https://img.shields.io/badge/Target-Windows_10_%2F_11_x64-0078d4?style=for-the-badge)](#quick-start)
 [![License](https://img.shields.io/badge/License-MIT-16803c?style=for-the-badge)](LICENSE)
 [![Interface](https://img.shields.io/badge/UI-English-8250df?style=for-the-badge)](#interface--project-status)
@@ -12,7 +12,7 @@ Looking for a **Windows debloater**, **Windows Update repair tool**, **Windows t
 
 Developed by **Muhammad Naufal Alauddin**. Independent, open-source, and under active development. **Not affiliated with Microsoft or Microsoft PowerToys.**
 
-**[Download v8.0.0.5](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.5)** · [Features](#whats-included) · [Release and verification notes](docs/verification-8.0.0.5.md) · [Build from source](#build--develop) · [Changelog](CHANGELOG.md)
+**[Download v8.0.0.6](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.6)** · [Features](#whats-included) · [Release notes](CHANGELOG.md) · [Build from source](#build--develop) · [Changelog](CHANGELOG.md)
 
 > **Introduced in v8.0.0.2 — De-bloat Workspace**
 > Six inline panels add individual AI controls, desktop/OEM apps, startup and
@@ -21,7 +21,9 @@ Developed by **Muhammad Naufal Alauddin**. Independent, open-source, and under a
 > Online stuck-download recovery and physical Intel RST / ASM2362 / RTL9210
 > validation also remain outstanding. Read the [release limitations](docs/release-8.0.0.2.md).
 
-## Current release: v8.0.0.5
+## Current release: v8.0.0.6
+
+GPU Driver Manager lists GeForce Hotfix announcements from NVIDIA Support and provides version selection for supported driver catalogs. De-bloat Workspace refreshes available actions after changes and preserves the registered NVIDIA PhysX uninstaller command format.
 
 Workspace actions now show
 nearby feedback and eligibility reasons; registered uninstaller parsing includes
@@ -56,7 +58,7 @@ Open **Advanced Windows Tweaks → De-bloat workspace** for inline individual AI
 and registered uninstallers, scoped startup management, per-app background policy,
 verified-removal/reinstallation detection, and guarded provisioning management for
 new Windows accounts. See [behavior, recovery and limitations](docs/debloat-workspace.md).
-These additions are included in the current **v8.0.0.5 installer**.
+These additions are included in the current **v8.0.0.6 installer**.
 Live VM acceptance remains separate from compilation and simulated tests.
 
 
@@ -96,7 +98,7 @@ data; they are not live update results or a screenshot of the complete inventory
 
 > **Back up important data before applying tweaks.** System-changing operations may require Administrator privileges. Review each option's warning; do not apply every tweak indiscriminately.
 
-1. Open the [latest v8.0.0.5 release](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.5) and download `Naufal-Windows-Utility-Setup-8.0.0.5-x64.exe`. Compare its SHA-256 with the attached `SHA256SUMS.txt`. Alternatively, [build from source](#build--develop).
+1. Open the [latest v8.0.0.6 release](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.6) and download `Naufal-Windows-Utility-Setup-8.0.0.6-x64.exe`. Compare its SHA-256 with the attached `SHA256SUMS.txt`. Alternatively, [build from source](#build--develop).
 2. Run the installer, open **Naufal Windows Utility**, and review the first-run prerequisites.
 3. Choose a catalog or performance profile, read its description, and apply only the changes you need.
 4. Read analysis results inline in the tool window; Apply/Restore operations retain their separate progress and verification results. For completed changes marked restart-sensitive, the app offers **Restart now** or **Later** after active tasks finish. Save your work before accepting. Choosing Later does not schedule a reboot; restart from Windows when convenient.
@@ -427,7 +429,7 @@ The project file retains its historical filename. Passing tests is not proof tha
 
 ## Interface & Project Status
 
-**Current release: [v8.0.0.5](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.5).**
+**Current release: [v8.0.0.6](https://github.com/mnaufalalauddin/Naufal-Windows-Utility/releases/tag/v8.0.0.6).**
 This release includes the De-bloat workspace reliability and small-window fixes,
 guarded registered-uninstaller handling, and the narrowly scoped Windows Update
 1051 fallback. See [release verification and limitations](docs/verification-8.0.0.5.md).

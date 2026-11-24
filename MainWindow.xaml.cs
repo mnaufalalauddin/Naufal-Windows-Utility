@@ -4533,6 +4533,28 @@ namespace Naufal_Windows_Tech_s_Powertoys
             driverDetails.Children.Add(statusText);
             GpuDriverUpdateView releaseView = new();
             driverDetails.Children.Add(releaseView);
+            WebView2? qualcommCatalog = null;
+            bool qualcommOpen = false;
+            async Task ShowQualcommCatalogAsync(GpuDriverEntry device)
+            {
+                try
+                {
+                    qualcommCatalog ??= new WebView2 { Height = 460 };
+                    if (!driverDetails.Children.Contains(qualcommCatalog)) driverDetails.Children.Add(qualcommCatalog);
+                    var environment = await Microsoft.Web.WebView2.Core.CoreWebView2Environment.CreateWithOptionsAsync(
+                        null, System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                            AppDataPaths.FolderName, "QualcommCatalog"), null);
+                    if (!qualcommOpen) return;
+                    await qualcommCatalog.EnsureCoreWebView2Async(environment);
+                    qualcommCatalog.CoreWebView2.Settings.AreHostObjectsAllowed = false;
+                    qualcommCatalog.CoreWebView2.Settings.IsWebMessageEnabled = false;
+                    if (qualcommOpen) qualcommCatalog.Source = new Uri(device.OfficialUrl);
+                }
+                catch (Exception)
+                {
+                    if (qualcommOpen) releaseView.Details.Text = "Open Official source to choose a version in Qualcomm Software Center.";
+                }
+            }
 
             Button officialSourceButton = new()
             {
@@ -4574,7 +4596,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
             bool inventoryLoading = false;
             window.IsBusy = () => inventoryLoading || gpuGate.IsBusy;
             Dictionary<string, GpuDriverCatalog> catalogs = new(StringComparer.OrdinalIgnoreCase);
-            Dictionary<string, GpuDriverChannel> selectedChannels = new(StringComparer.OrdinalIgnoreCase);
+            Dictionary<string, (GpuDriverChannel Channel, string Version)> selectedChannels = new(StringComparer.OrdinalIgnoreCase);
             bool bindingChannels = false;
             GpuDriverChoice? GetChoice() => (gpuHeader.ChannelPicker.SelectedItem as ComboBoxItem)?.Tag as GpuDriverChoice;
             void ResetChannels()
@@ -4594,13 +4616,13 @@ namespace Naufal_Windows_Tech_s_Powertoys
                     foreach (var choice in catalog.Choices)
                     {
                         var item = new ComboBoxItem { Tag = choice,
-                            Content = new TextBlock { Text = choice.Name, TextWrapping = TextWrapping.Wrap } };
+                            Content = new TextBlock { Text = $"{choice.Release.Version}  ·  {choice.Name}", TextWrapping = TextWrapping.Wrap } };
                         gpuHeader.ChannelPicker.Items.Add(item);
-                        if (hadPreference && choice.Id == preferred) gpuHeader.ChannelPicker.SelectedItem = item;
+                        if (hadPreference && (choice.Id, choice.Release.Version) == preferred) gpuHeader.ChannelPicker.SelectedItem = item;
                     }
                     if (!hadPreference && gpuHeader.ChannelPicker.Items.Count > 0) gpuHeader.ChannelPicker.SelectedIndex = 0;
-                    if (GetChoice() is { } selectedChoice) selectedChannels[device.PnpDeviceId] = selectedChoice.Id;
-                    gpuHeader.ChannelPicker.PlaceholderText = catalog.Choices.Count == 0 ? "No compatible driver type verified — retry or use Official source" : "Select driver type";
+                    if (GetChoice() is { } selectedChoice) selectedChannels[device.PnpDeviceId] = (selectedChoice.Id, selectedChoice.Release.Version);
+                    gpuHeader.ChannelPicker.PlaceholderText = catalog.Choices.Count == 0 ? "No compatible driver type verified — retry or use Official source" : "Select driver version";
                     UiDisplaySettings.Apply(gpuHeader);
                 }
                 finally { bindingChannels = false; }
@@ -4613,12 +4635,13 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 releaseCheck = null;
                 checkingDevice = null;
             }
-            window.Closed += (_, _) => CancelReleaseCheck();
+            window.Closed += (_, _) => { CancelReleaseCheck(); qualcommOpen = false; qualcommCatalog?.Close(); };
 
             async Task CheckUpdatesAsync(bool force = false)
             {
                 GpuDriverEntry? selected = GetSelection();
                 if (window.IsClosed || inventoryLoading || gpuGate.IsBusy || selected is null) return;
+                if (force && selected.Vendor == "Qualcomm" && qualcommCatalog?.CoreWebView2 is not null) qualcommCatalog.Reload();
                 if (!force && checkingDevice == selected.PnpDeviceId) return;
                 if (!force && catalogs.TryGetValue(selected.PnpDeviceId, out var cached))
                 {
@@ -4695,10 +4718,10 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 list.IsEnabled = !busy;
                 refreshButton.IsEnabled = !busy;
                 bool supported = !busy && selected is not null &&
-                    selected.Vendor is "NVIDIA" or "AMD" or "Intel";
+                    selected.Vendor is "NVIDIA" or "AMD" or "Intel" or "Qualcomm";
                 bool checking = selected is not null && checkingDevice == selected.PnpDeviceId;
                 var choice = GetChoice();
-                bool canInstall = supported && !checking && choice is not null;
+                bool canInstall = supported && !checking && choice?.Release.DownloadUri is not null;
                 GpuDriverUpdate? update = null;
                 if (!checking && selected is not null && catalogs.TryGetValue(selected.PnpDeviceId, out var catalog))
                 {
@@ -4706,13 +4729,28 @@ namespace Naufal_Windows_Tech_s_Powertoys
                         (catalog.Choices.Count > 0 ? "The previously selected driver type is unavailable. Select another verified type explicitly. " : "No compatible driver type was verified. ") + catalog.Detail)
                         : GpuDriverUpdates.Evaluate(selected.Vendor, selected.DriverVersion, selected.DriverInstalled, choice.Release, catalog.CheckedAt);
                     if (choice is not null && catalog.Detail.Length > 0) update = update with { Detail = update.Detail + "\nOther catalog results:\n" + catalog.Detail };
-                    releaseView.ShowResult(update);
+                    if (selected.Vendor == "Qualcomm")
+                    {
+                        releaseView.ShowNotChecked();
+                        releaseView.Notice.Title = "Qualcomm Software Center";
+                        releaseView.Details.Text = catalog.Detail;
+                    }
+                    else releaseView.ShowResult(update);
                 }
                 else if (!checking) releaseView.ShowNotChecked();
                 if (update?.State == GpuUpdateState.NewerInstalled) canInstall = false;
                 gpuHeader.InstallButton.IsEnabled = canInstall;
                 gpuHeader.RepairButton.IsEnabled = canInstall && selected!.DriverInstalled;
                 gpuHeader.ChannelPicker.IsEnabled = supported && !checking && gpuHeader.ChannelPicker.Items.Count > 0;
+                bool showQualcomm = selected?.Vendor == "Qualcomm" && Environment.OSVersion.Version.Build >= 22000 && GpuDriverService.IsSnapdragonX();
+                gpuHeader.ChannelPicker.Visibility = showQualcomm ? Visibility.Collapsed : Visibility.Visible;
+                if (showQualcomm != qualcommOpen)
+                {
+                    qualcommOpen = showQualcomm;
+                    if (showQualcomm) _ = ShowQualcommCatalogAsync(selected!);
+                    else if (qualcommCatalog is not null) qualcommCatalog.Visibility = Visibility.Collapsed;
+                }
+                if (qualcommCatalog is not null) qualcommCatalog.Visibility = showQualcomm ? Visibility.Visible : Visibility.Collapsed;
                 officialSourceButton.IsEnabled = supported;
                 gpuHeader.CheckButton.IsEnabled = supported && !checking;
                 if (selected is null)
@@ -4785,7 +4823,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
                     }
                     else
                     {
-                        statusText.Text = "No NVIDIA, AMD, or Intel PCI display adapter was found.";
+                        statusText.Text = "No supported NVIDIA, AMD, Intel or Qualcomm display adapter was found.";
                     }
                     progressWindow.CompleteItem(
                         "GpuInventory",
@@ -4953,7 +4991,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
             gpuHeader.ChannelPicker.SelectionChanged += (_, _) =>
             {
                 if (bindingChannels || gpuGate.IsBusy || inventoryLoading) return;
-                if (GetSelection() is { } device && GetChoice() is { } choice) selectedChannels[device.PnpDeviceId] = choice.Id;
+                if (GetSelection() is { } device && GetChoice() is { } choice) selectedChannels[device.PnpDeviceId] = (choice.Id, choice.Release.Version);
                 UpdateSelection();
             };
             gpuHeader.CheckButton.Click += async (_, _) => await CheckUpdatesAsync(force: true);

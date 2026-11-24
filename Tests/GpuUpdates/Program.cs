@@ -105,7 +105,7 @@ Task<string> Fetch(Uri uri, string vendor, CancellationToken token)
 }
 var checkedUpdate = await service.CheckForUpdatesAsync(Entry(), fetch: Fetch, windowsBuild: 26300);
 Check(checkedUpdate.State == GpuUpdateState.UpdateAvailable, "service notification for older installed GPU");
-Check(requests.Count == 3 && requests.Skip(1).All(u => u.Query.Contains("pfid=1040")), "service uses exact model for both driver types instead of substring match");
+Check(requests.Count == 4 && requests.Count(u => u.Query.Contains("pfid=1040")) == 2 && requests.Count(u => u.Host == "nvidia.custhelp.com") == 1, "service uses exact model for both driver types instead of substring match");
 Check(requests[1].Query.Contains("osID=135") && checkedUpdate.Report.Contains("Windows 11 x64"), "Windows 11 uses NVIDIA catalog OS 135");
 requests.Clear();
 var win10 = await service.CheckForUpdatesAsync(Entry(), fetch: Fetch, windowsBuild: 19045);
@@ -191,4 +191,30 @@ foreach (var requestCase in new[] { ("Intel", false), ("Intel", true), ("NVIDIA"
     Check((request.Headers.AcceptLanguage.ToString() == "en-US, en; q=0.9") == intelMetadata, "English catalog language is explicit only for Intel metadata");
     Check(!request.Headers.Contains("Cookie") && request.Headers.Authorization is null && request.Headers.UserAgent.Count == 0, "request negotiation does not borrow browser sessions or impersonate a browser");
 }
+string archivePage = IntelPage("Intel® Arc™ A770 Graphics") +
+    "<table><tr><td data-label='Version'>32.0.101.8877 WHQL Certified</td><td data-label='Release Date'>7/20/2026</td>" +
+    "<td><a href='/content/www/us/en/download/785597/923907/intel-arc-graphics-windows.html'>Link</a></td></tr></table>";
+var intelHistory = await service.ReadDriverChannelsAsync(Entry("Intel", "Intel Arc A770 Graphics"),
+    fetch: (uri, _, _) => Task.FromResult(uri.AbsolutePath.Contains("741626") ? "" : archivePage));
+Check(intelHistory.Choices.Any(c => c.Release.Version == "32.0.101.8877" && c.Release.Source.AbsolutePath.Contains("/923907/")),
+    "Intel archived entry preserves the vendor URL for the selected revision");
+string olderGameReady = nv.Replace("617.42", "616.91");
+string multiple = "{\"IDS\":[" + JsonDocument.Parse(nv).RootElement.GetProperty("IDS")[0].GetRawText() + "," +
+    JsonDocument.Parse(olderGameReady).RootElement.GetProperty("IDS")[0].GetRawText() + "]}";
+Task<string> MultiFetch(Uri uri, string vendor, CancellationToken token) =>
+    uri.Query.Contains("upCRD=0") ? Task.FromResult(multiple) : ChannelsFetch(uri, vendor, token);
+var olderPackage = await service.ResolveSelectedPackageAsync(Entry(version: "32.0.16.1000"), GpuDriverChannel.GameReady,
+    "616.91", fetch: MultiFetch);
+Check(olderPackage.OnlineVersion == "616.91" && olderPackage.DownloadUri.AbsolutePath.Contains("/616.91/"),
+    "refresh resolves the exact previously selected version within the same channel");
+
+string hotfixIndex = "<a href='/app/answers/detail/a_id/10/kw/Hotfix'>GeForce <em>Hotfix</em> Display Driver version 700.12</a>" +
+    "<a href='/app/answers/detail/a_id/9/kw/Hotfix'>GeForce Hotfix Display Driver version 699.83</a>";
+Task<string> HistoryFetch(Uri uri, string vendor, CancellationToken token) => uri.Host == "nvidia.custhelp.com"
+    ? Task.FromResult(hotfixIndex) : ChannelsFetch(uri, vendor, token);
+var historyCatalog = await service.ReadDriverChannelsAsync(Entry(), fetch: HistoryFetch, windowsBuild: 26300);
+Check(historyCatalog.Choices.Where(c => c.Id == GpuDriverChannel.GeForceHotfix).Select(c => c.Release.Version)
+    .SequenceEqual(new[] { "700.12", "699.83" }), "Hotfix announcements are discovered dynamically and sorted");
+Check(historyCatalog.Choices.Where(c => c.Id == GpuDriverChannel.GeForceHotfix).All(c => c.Release.DownloadUri is null),
+    "announcements alone do not authorize automatic installation");
 Console.WriteLine($"PASS: {checks} GPU release metadata/service assertions. No Windows changes or driver packages downloaded.");

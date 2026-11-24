@@ -7,7 +7,7 @@ using System.Text.RegularExpressions;
 
 namespace Naufal_Windows_Tech_s_Powertoys;
 
-internal enum GpuDriverChannel { GameReady, Studio, RtxEnterprise, AmdRecommended, AmdOptional, IntelGraphics, IntelPro }
+internal enum GpuDriverChannel { GameReady, Studio, RtxEnterprise, AmdRecommended, AmdOptional, IntelGraphics, IntelPro, GeForceHotfix }
 internal sealed record GpuDriverChoice(GpuDriverChannel Id, GpuDriverRelease Release)
 {
     public string Name => GpuDriverChannels.Name(Id);
@@ -20,6 +20,7 @@ internal static class GpuDriverChannels
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(2);
     internal static string Name(GpuDriverChannel id) => id switch
     {
+        GpuDriverChannel.GeForceHotfix => "GeForce Hotfix",
         GpuDriverChannel.GameReady => "GeForce Game Ready Driver",
         GpuDriverChannel.Studio => "NVIDIA Studio Driver",
         GpuDriverChannel.RtxEnterprise => "NVIDIA RTX Driver / Enterprise Production Branch",
@@ -104,7 +105,7 @@ internal static class GpuDriverChannels
 
     internal static bool IntelProductListed(string html, string model)
     {
-        var section = Regex.Match(html, @"(?is)This download is valid for the product.*?(?:Automatically update|</main>)", RegexOptions.CultureInvariant, Timeout);
+        var section = Regex.Match(html, @"(?is)This download is valid for the product.*?(?:</ul>|Automatically update|</main>)", RegexOptions.CultureInvariant, Timeout);
         if (!section.Success) return false;
         string target = NormalizeModel(model);
         return Regex.Matches(section.Value, @"(?is)<a\b[^>]*>(.*?)</a>", RegexOptions.CultureInvariant, Timeout)
@@ -119,7 +120,9 @@ internal static class GpuDriverChannels
     {
         string text = GpuDriverUpdates.PlainText(html);
         var downloads = Regex.Match(text, @"(?is)Available Downloads(.*?)Detailed Description", RegexOptions.CultureInvariant, Timeout);
-        return downloads.Success && Regex.IsMatch(downloads.Groups[1].Value,
+        string supportedSystems = downloads.Success ? downloads.Groups[1].Value :
+            GpuDriverUpdates.PlainText(Regex.Match(html, @"(?is)<ul\b[^>]*\bid=[""']button-list-items-0[""'][^>]*>(.*?)</ul>", RegexOptions.CultureInvariant, Timeout).Groups[1].Value);
+        return Regex.IsMatch(supportedSystems,
             @"\bWindows\s*" + (windows11 ? "11" : "10") + @"\b", RegexOptions.IgnoreCase, Timeout);
     }
 }

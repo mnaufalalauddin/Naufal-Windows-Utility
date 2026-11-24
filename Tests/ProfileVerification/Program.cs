@@ -2,6 +2,16 @@ using Naufal_Windows_Tech_s_Powertoys;
 
 try
 {
+if (args.Contains("--workspace-actions"))
+{
+    int count = 0;
+    void Check(bool passed, string name) { if (!passed) throw new Exception(name); count++; }
+    WorkspaceActionTests.Run(Check);
+    DebloatWorkspaceTests.Run(Check);
+    await DebloatWorkspaceTests.ProvisioningAsync(Check);
+    Console.WriteLine($"PASS: {count} workspace assertions.");
+    return;
+}
 if (args.Contains("--workspace-command-read-probe")) { WorkspaceActionTests.ReadOnlyProbe(); return; }
 if (args.Contains("--repair-storage-regression"))
 {

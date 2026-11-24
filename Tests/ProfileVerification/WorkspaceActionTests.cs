@@ -41,6 +41,7 @@ internal static class WorkspaceActionTests
         DesktopAppEntry app = new("LocalMachine|Registry64|{EXAMPLE}_Display.PhysX", "NVIDIA PhysX", "NVIDIA Corporation", "test", "test", "All users",
             $"\"{host}\" \"{dll}\",UninstallPackage Display.PhysX", false);
         var nvidia = RegisteredAppCommand.Uninstall(app, _ => true);
+        check(nvidia.StartInfo().Arguments == $"\"{dll}\",UninstallPackage Display.PhysX", "rundll32 receives the quoted DLL path followed by the export");
         check(nvidia.NvidiaModule == dll && nvidia.Executable == host && nvidia.Arguments.SequenceEqual(new[] { dll + ",UninstallPackage", "Display.PhysX" }), "NVIDIA registered DLL/export/package preserved; signature gate required");
         Reject(() => RegisteredAppCommand.Uninstall(app with { Identity = "CurrentUser|Registry64|{EXAMPLE}_Display.PhysX" }, _ => true), "user registered NVIDIA DLL host is not trusted");
         Reject(() => RegisteredAppCommand.Uninstall(app with { UninstallCommand = app.UninstallCommand.Replace("UninstallPackage", "OtherExport") }, _ => true), "arbitrary DLL export blocked");

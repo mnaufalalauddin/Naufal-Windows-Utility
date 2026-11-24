@@ -13,7 +13,16 @@ internal sealed record RegisteredAppCommand(string Executable, string[] Argument
     internal ProcessStartInfo StartInfo()
     {
         var start = new ProcessStartInfo(Executable) { UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(Executable)! };
-        foreach (string argument in Arguments) start.ArgumentList.Add(argument);
+        if (NvidiaModule is not null)
+        {
+            // rundll32 parses the quoted DLL path separately from the comma and export.
+            // Both the module path and package token were validated by Uninstall().
+            start.Arguments = $"\"{NvidiaModule}\",UninstallPackage {Arguments[1]}";
+        }
+        else
+        {
+            foreach (string argument in Arguments) start.ArgumentList.Add(argument);
+        }
         return start;
     }
 

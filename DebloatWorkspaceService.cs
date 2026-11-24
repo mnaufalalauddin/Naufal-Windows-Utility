@@ -122,7 +122,8 @@ internal sealed class DebloatWorkspaceService : IProvisionedAppsBackend
             foreach (string name in run.GetValueNames())
             {
                 var target = new DebloatTarget(hive, view, DebloatWorkspacePolicy.RunPath, name);
-                var value = _registry.Read(target)!;
+                var value = _registry.Read(target);
+                if (value is null) continue;
                 string command = value.Data.FirstOrDefault() ?? "";
                 string? blocked = hive != RegistryHive.CurrentUser ? "Machine-wide startup: manage in Windows Settings." : null;
                 if (name.Equals("OneDrive", StringComparison.OrdinalIgnoreCase) || name.StartsWith("MicrosoftEdgeAutoLaunch", StringComparison.OrdinalIgnoreCase))

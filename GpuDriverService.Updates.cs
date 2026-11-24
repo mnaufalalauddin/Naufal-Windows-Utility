@@ -66,17 +66,29 @@ internal sealed partial class GpuDriverService
                                 Uri query = new($"https://gfwsl.geforce.com/services_toolkit/services/com/nvidia/services/AjaxDriverService.php?func=DriverManualLookup&psid={mapping.Family}&pfid={mapping.Product}&osID={(windows11 ? "135" : "57")}&languageCode=1033&beta=0&dch=1&sort1=0&numberOfResults=10&{GpuDriverChannels.NvidiaParameters(id)}");
                                 releases.AddRange(GpuDriverChannels.ParseNvidia(await Read(query), query, model, id, windows11));
                             }
-                            return releases.OrderByDescending(r => Version.Parse(r.Version)).FirstOrDefault();
+                            var ordered = releases.OrderByDescending(r => Version.Parse(r.Version)).DistinctBy(r => r.Version).ToArray();
+                            choices.AddRange(ordered.Skip(1).Select(r => new GpuDriverChoice(id, r)));
+                            return ordered.FirstOrDefault();
                         });
                     break;
                 case "AMD":
                     Uri amd = GpuDriverUpdates.AmdProductPage(entry.Name, entry.PortableSystem)
                         ?? throw new InvalidOperationException("No exact AMD desktop RX product mapping. Use Official source or your OEM; no alternative driver type is assumed compatible.");
                     string amdHtml = await Read(amd);
+                    string amdArchive = "";
+                    var previous = new Uri(amd.AbsoluteUri.Replace("/drivers.html/", "/previous-drivers.html/", StringComparison.Ordinal));
+                    try { amdArchive = await Read(previous); }
+                    catch (HttpRequestException error) { notes.Add("AMD previous releases: " + error.Message); }
                     foreach (var id in new[] { GpuDriverChannel.AmdRecommended, GpuDriverChannel.AmdOptional })
                         await TryChannel(id, async () =>
                         {
-                            var release = GpuDriverUpdates.ParseAmd(amdHtml, amd, entry.Name, windows11, optional: id == GpuDriverChannel.AmdOptional);
+                            bool optional = id == GpuDriverChannel.AmdOptional;
+                            var history = GpuDriverUpdates.ParseAmdHistory(amdHtml, amd, entry.Name, windows11, optional)
+                                .Concat(GpuDriverUpdates.ParseAmdHistory(amdArchive, previous, entry.Name, windows11, optional))
+                                .Where(r => r.DownloadUri is not null).DistinctBy(r => r.Version)
+                                .OrderByDescending(r => Version.Parse(r.Version)).ToArray();
+                            choices.AddRange(history.Skip(1).Select(r => new GpuDriverChoice(id, r)));
+                            var release = history.FirstOrDefault();
                             if (release is not null)
                             {
                                 try { release = GpuDriverUpdates.AddAmdDriverVersions(release, await Read(release.Source)); }
@@ -100,6 +112,7 @@ internal sealed partial class GpuDriverService
                             if (arc && !GpuDriverChannels.IntelProductListed(html, entry.Name)) return null;
                             var release = GpuDriverUpdates.ParseIntel(html, page.Page, page.Name);
                             if (release is null) return null;
+                            choices.AddRange(IntelPreviousVersions(html, page.Page, page.Name, page.Id));
                             string content = WebUtility.HtmlDecode(html).Replace("\\/", "/", StringComparison.Ordinal);
                             var urls = Regex.Matches(content, @"https://downloadmirror\.intel\.com/\d+/[^""'<>\s]+\.exe", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(2))
                                 .Select(m => Uri.TryCreate(m.Value, UriKind.Absolute, out var u) ? u : null)
@@ -110,14 +123,65 @@ internal sealed partial class GpuDriverService
                                 PublishedSha256 = hash.Success ? hash.Groups[1].Value.ToUpperInvariant() : "" } : null;
                         });
                     break;
-                default: throw new InvalidOperationException("Only official NVIDIA, AMD and Intel catalogs are supported.");
+                case "Qualcomm":
+                    if (!windows11 || !IsSnapdragonX()) throw new InvalidOperationException("Use your device manufacturer's driver catalog for this platform.");
+                    notes.Add("Choose the Windows ARM64 package version in the Qualcomm Software Center below.");
+                    break;
+                default: throw new InvalidOperationException("No vendor catalog for this adapter.");
             }
             token.ThrowIfCancellationRequested();
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (OperationCanceledException) { notes.Add("Online check timed out. Retry Check for updates."); }
         catch (Exception error) { notes.Add("Online check failed: " + error.Message); }
-        return new(choices, DateTimeOffset.Now, string.Join("\n", notes));
+        if (entry.Vendor == "NVIDIA" && entry.Name.Contains("GeForce", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                Uri index = new("https://nvidia.custhelp.com/app/answers/list/st/5/kw/Hotfix");
+                using var supportTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                supportTimeout.CancelAfter(TimeSpan.FromSeconds(12));
+                var hotfixes = HotfixArticles(await fetch(index, entry.Vendor, supportTimeout.Token)).OrderByDescending(c => Version.Parse(c.Release.Version)).ToArray();
+                choices.AddRange(hotfixes);
+                notes.Add(hotfixes.Length == 0 ? "No GeForce Hotfix articles found in NVIDIA Support." :
+                    "GeForce Hotfix " + hotfixes[0].Release.Version + " is listed by NVIDIA Support. Select a Hotfix to review applicability.");
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+            catch (Exception error) { notes.Add("NVIDIA Hotfix lookup: " + error.Message); }
+        }
+        return new(choices.DistinctBy(c => (c.Id, c.Release.Version)).OrderBy(c => c.Id)
+            .ThenByDescending(c => Version.Parse(c.Release.Version)).ToArray(), DateTimeOffset.Now, string.Join("\n", notes));
+    }
+
+    private static IEnumerable<GpuDriverChoice> HotfixArticles(string html)
+    {
+        foreach (Match link in Regex.Matches(html, @"<a\b[^>]*\bhref=[""']/app/answers/detail/a_id/(\d+)[^""']*[""'][^>]*>(.*?)</a>", RegexOptions.Singleline | RegexOptions.IgnoreCase, TimeSpan.FromSeconds(2)))
+        {
+            string title = GpuDriverUpdates.PlainText(link.Groups[2].Value);
+            var match = Regex.Match(title, @"\bGeForce\s+Hotfix\s+(?:Display\s+)?Driver\s+(?:Version\s+)?v?(\d{3}\.\d{2})\b", RegexOptions.IgnoreCase);
+            if (!match.Success) continue;
+            string version = match.Groups[1].Value;
+            yield return new(GpuDriverChannel.GeForceHotfix, new(version, "",
+                new Uri("https://nvidia.custhelp.com/app/answers/detail/a_id/" + link.Groups[1].Value),
+                "GeForce Hotfix", [version], "NVIDIA Support announcement. Check affected products and operating systems in the article before installing."));
+        }
+    }
+
+    private static IEnumerable<GpuDriverChoice> IntelPreviousVersions(string html, Uri page, string family, GpuDriverChannel id)
+    {
+        string path = page.AbsolutePath;
+        int slash = path.LastIndexOf('/');
+        foreach (Match row in Regex.Matches(html, @"<tr\b[^>]*>(.*?)</tr>", RegexOptions.Singleline | RegexOptions.IgnoreCase, TimeSpan.FromSeconds(2)))
+        {
+            string Find(string pattern) => Regex.Match(row.Value, pattern, RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1)).Groups[1].Value;
+            string version = Find(@"data-label=[""']Version[""']>\s*(\d+\.\d+\.\d+\.\d+)");
+            string href = Find(@"href=[""']([^""']+)[""']");
+            if (version.Length == 0 || !Uri.TryCreate(page, WebUtility.HtmlDecode(href), out var uri) || uri.Host != page.Host ||
+                !GpuDriverUpdates.IsOfficialSource(uri, "Intel") || !Regex.IsMatch(uri.AbsolutePath,
+                    "^" + Regex.Escape(path[..(slash + 1)]) + @"\d+" + Regex.Escape(path[slash..]) + "$")) continue;
+            yield return new(id, new(version, Find(@"data-label=[""']Release Date[""']>\s*([\d/]+)"), uri, family,
+                [], "Archived release for this product family. Review the supported products on Intel's release page."));
+        }
     }
 
     internal async Task<GpuDriverUpdate> CheckForUpdatesAsync(GpuDriverEntry entry,
@@ -137,12 +201,22 @@ internal sealed partial class GpuDriverService
         Func<Uri, string, CancellationToken, Task<string>>? fetch = null, int? windowsBuild = null)
     {
         var catalog = await ReadDriverChannelsAsync(entry, cancellationToken, fetch, windowsBuild);
-        var choice = catalog.Choices.FirstOrDefault(c => c.Id == channel)
+        var choice = catalog.Choices.FirstOrDefault(c => c.Id == channel && (expectedVersion is null || c.Release.Version == expectedVersion))
             ?? throw new InvalidOperationException("The selected driver type is no longer verified for this GPU/OS. Refresh the catalog. " + catalog.Detail);
         var release = choice.Release;
+        if (entry.Vendor == "AMD" && release.DriverVersions.Count == 0)
+        {
+            var read = fetch ?? FetchCatalogTextAsync;
+            try { release = GpuDriverUpdates.AddAmdDriverVersions(release, await read(release.Source, "AMD", cancellationToken)); }
+            catch (HttpRequestException) { /* Release notes may be temporarily unavailable. */ }
+        }
+        if (release.DownloadUri is null) throw new InvalidOperationException("Review this release on the vendor's official page.");
         if (expectedVersion is not null && release.Version != expectedVersion)
             throw new InvalidOperationException("The selected release changed since confirmation. Refresh and confirm its new version before downloading.");
         var comparison = GpuDriverUpdates.Evaluate(entry.Vendor, entry.DriverVersion, entry.DriverInstalled, release, catalog.CheckedAt);
+        bool historical = catalog.Choices.First(c => c.Id == channel).Release.Version != release.Version;
+        if (historical && entry.DriverInstalled && comparison.State == GpuUpdateState.ComparisonUnavailable)
+            throw new InvalidOperationException("The archived package cannot be compared with your installed driver. Review the official release details.");
         if (comparison.State == GpuUpdateState.NewerInstalled)
             throw new InvalidOperationException("The selected channel is older than the installed driver. Automatic downgrade is not offered; review the vendor's manual instructions.");
         Uri download = release.DownloadUri ?? throw new InvalidOperationException("No verified direct package.");
