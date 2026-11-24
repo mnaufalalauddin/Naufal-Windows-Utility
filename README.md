@@ -12,7 +12,7 @@
 | **Repair and drivers** | Repair local Windows Update components, check supported GPU driver catalogs or open the vendor’s release page. |
 | **Network Settings Manager** | Review Ethernet and Wi-Fi settings, including IP addresses, gateways and DNS. [Network validation coverage](docs/network-acceptance-status.md) |
 
-**Version 1.0.0.0 starts a new numbering series following 8.0.0.6.** This release also refreshes tweak status after Apply or Restore and keeps the result of a De-bloat Workspace action beside its control. Read the [changelog](CHANGELOG.md) for previous releases and [verification notes](docs/verification-8.0.0.5.md) for test limitations.
+**Version 1.0.0.0** refreshes tweak status after Apply or Restore and shows De-bloat Workspace results beside the action you ran. See the [changelog](CHANGELOG.md) and [verification notes](docs/verification-8.0.0.5.md).
 
 **Bahasa Indonesia** · Cari setelan Windows dari Home, lihat pemakaian CPU dan RAM, atau pilih aplikasi bawaan yang ingin dihapus. Antarmuka aplikasi menggunakan bahasa Inggris.
 
