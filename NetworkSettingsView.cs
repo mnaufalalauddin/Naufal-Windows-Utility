@@ -31,6 +31,7 @@ internal sealed partial class NetworkSettingsView : StackPanel
     private readonly Button _save, _wifiSettings;
     private readonly List<Control> _controls = [];
     private bool _loading, _busy;
+    private Task _selectionRead = Task.CompletedTask;
 
     internal NetworkSettingsView()
     {
@@ -71,7 +72,7 @@ internal sealed partial class NetworkSettingsView : StackPanel
         Children.Add(new Expander { Header = "Additional settings", Content = _additional, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch });
         _additional.Requested = (action, settings) => AdditionalRequested?.Invoke(action, GetChanges().AdapterId, settings) ?? Task.CompletedTask;
         _controls.AddRange([_adapters, _snapshots, _category]);
-        _adapters.SelectionChanged += async (_, _) => { if (_loading) return; LoadAdapter(); if (IsWifi && !_busy && WifiSelected is not null) await WifiSelected(SelectedAdapterId); };
+        _adapters.SelectionChanged += async (_, _) => { if (_loading) return; LoadAdapter(); if (IsWifi && !_busy && WifiSelected is not null) await (_selectionRead = WifiSelected(SelectedAdapterId)); };
         _category.SelectionChanged += (_, _) => UpdateSummary();
         _v4.Changed += UpdateSummary; _v6.Changed += UpdateSummary;
         LoadAdapter();
@@ -137,6 +138,39 @@ internal sealed partial class NetworkSettingsView : StackPanel
             : "No active physical Ethernet or Wi-Fi adapter selected. Connect an adapter, then refresh.";
         UpdateSummary();
     }
+    internal async Task FocusAddressFieldAsync(bool wifi, bool ipv6, string field)
+    {
+        void Explain(string reason)
+        {
+            Status(reason);
+            _adapters.Focus(FocusState.Keyboard);
+            _adapters.StartBringIntoView();
+        }
+        if (_busy) { Explain("A network operation is in progress. Try the search again when it finishes."); return; }
+        var candidates = _adapters.Items.OfType<NetworkAdapterState>().Where(a => a.InterfaceType == (wifi ? 71 : 6)).ToArray();
+        var selected = _adapters.SelectedItem as NetworkAdapterState;
+        if (selected is null || !candidates.Contains(selected))
+        {
+            if (candidates.Length != 1)
+            {
+                Explain(candidates.Length == 0 ? $"No active {(wifi ? "Wi-Fi" : "Ethernet")} adapter found." : "Choose the intended adapter, then repeat the search.");
+                return;
+            }
+            if (NetworkSettingsValidation.HasChanges(GetChanges()) || _additional.Value() != new NetworkAdditionalSettings())
+            {
+                Explain("The current adapter has edits. Save or discard them before switching adapters.");
+                return;
+            }
+            selected = candidates[0];
+            _adapters.SelectedItem = selected;
+        }
+        await _selectionRead;
+        if (!IsLoaded || ActualHeight == 0 || _busy || selected?.Id != SelectedAdapterId) return;
+        if (wifi && WifiState is null) { Explain(_scope.Text); return; }
+        string scope = wifi ? $"Wi-Fi network: {WifiState!.Target.DisplaySsid}" : $"Ethernet: {selected!.Name}";
+        (ipv6 ? _v6 : _v4).FocusField(field, scope + (ipv6 ? " · IPv6" : " · IPv4"));
+    }
+
     internal void SetAdapters(NetworkAdapterState[] adapters)
     {
         string? previous = (_adapters.SelectedItem as NetworkAdapterState)?.Id;
@@ -241,6 +275,14 @@ internal sealed partial class NetworkSettingsView : StackPanel
             Changed?.Invoke();
         }
         internal void Busy(bool busy) { _busy = busy; Update(); }
+        internal void FocusField(string field, string scope)
+        {
+            TextBox box = field switch { "Alternate DNS" => _alternate, "Preferred DNS" => _preferred, "Gateway" => _gateway,
+                "Subnet mask" or "Prefix length" => _subnet, _ => _address };
+            box.Description = scope + (box.IsReadOnly ? " · Choose Manual in the corresponding assignment to edit." : "");
+            box.Focus(FocusState.Keyboard);
+            box.StartBringIntoView(new BringIntoViewOptions { VerticalAlignmentRatio = 0.5 });
+        }
         internal NetworkFamilySettings Value() => new()
         {
             AddressMode = (string)_mode.SelectedItem, Address = _address.Text.Trim(), Subnet = _subnet.Text.Trim(), Gateway = _gateway.Text.Trim(),
@@ -248,6 +290,7 @@ internal sealed partial class NetworkSettingsView : StackPanel
         };
         internal void Load(NetworkFamilySettings f)
         {
+            foreach (TextBox field in new[] { _address, _subnet, _gateway, _preferred, _alternate }) field.Description = null;
             _mode.SelectedItem = f.AddressMode; _dns.SelectedItem = f.DnsMode;
             _address.Text = f.Address; _subnet.Text = f.Subnet; _gateway.Text = f.Gateway;
             _preferred.Text = f.PreferredDns; _alternate.Text = f.AlternateDns;

@@ -76,6 +76,8 @@ namespace Naufal_Windows_Tech_s_Powertoys
         {
             InitializeComponent();
             InitializeHomeSearch();
+            BeforeFrameTime.ValueChanged += (_, _) => UpdateFrameTimeComparison();
+            AfterFrameTime.ValueChanged += (_, _) => UpdateFrameTimeComparison();
             UiDisplaySettings.KeepRecoveryControlUsable(ThemeButton);
             UiDisplaySettings.KeepRecoveryControlUsable(TextScaleButton);
             UiDisplaySettings.KeepRecoveryControlUsable(TextScaleGlyph);
@@ -131,6 +133,15 @@ namespace Naufal_Windows_Tech_s_Powertoys
             UpdateClock();
             UpdateLiveStatus();
             _ = UpdateGamingStatusAsync();
+        }
+
+        private void UpdateFrameTimeComparison()
+        {
+            double before = BeforeFrameTime.Value, after = AfterFrameTime.Value;
+            FrameTimeComparison.Text = !(before > 0 && after > 0 && double.IsFinite(before) && double.IsFinite(after))
+                ? "Enter two positive frame times in milliseconds."
+                : before == after ? "Same average frame time in both runs."
+                : $"Measured difference: {Math.Abs(after - before):0.###} ms {((after < before) ? "lower" : "higher")} ({Math.Abs((after - before) / before):P1}).";
         }
 
         private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -2146,7 +2157,10 @@ namespace Naufal_Windows_Tech_s_Powertoys
             Grid contentGrid = new();
             contentGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             StackPanel filterHeader = new() { Spacing = 4, Margin = new Thickness(4, 0, 4, 8) };
-            TextBox search = new() { PlaceholderText = "Search this catalog", Text = initialSearch };
+            string? targetId = initialSearch.Length == 0 ? null : initialSearch;
+            string searchName = definitions.FirstOrDefault(d => d.Id == targetId).Name
+                ?? actionService?.GetActions().FirstOrDefault(a => a.Id == targetId).Name ?? "";
+            TextBox search = new() { PlaceholderText = "Search this catalog", Text = searchName };
             AutomationProperties.SetName(search, "Search this catalog");
             filterHeader.Children.Add(search);
             ComboBox stateFilter = new()
@@ -2273,7 +2287,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
                     IsOn = false,
                     IsEnabled = false,
                     OnContent = definition.IsFeatureSwitch ? "Enabled" : "Applied",
-                    OffContent = definition.IsFeatureSwitch ? "Disabled" : "Not fully applied",
+                    OffContent = "Not verified",
                     MinWidth = 154,
                     MinHeight = 32,
                     HorizontalAlignment = HorizontalAlignment.Right,
@@ -2562,7 +2576,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
                             synchronizingControls = true;
                             try { toggles[action.Id].IsOn = state.IsOn; }
                             finally { synchronizingControls = false; }
-                            UpdateCatalogStateText(stateTexts[action.Id], state);
+                            UpdateCatalogStateText(stateTexts[action.Id], toggles[action.Id], definition, state);
                             refreshBulkSummary?.Invoke();
                         }
                         // Run handlers already await their action; these completion
@@ -2717,7 +2731,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
             long lastScanAttempt = -1;
             CatalogStateView CurrentStateFilter() => stateFilter.SelectedItem is ComboBoxItem { Tag: CatalogStateView view }
                 ? view : CatalogStateView.All;
-            bool IsVisibleOption(ToolToggleDefinition definition) => MatchesSearch(search.Text, definition.Name, definition.Category, definition.Description, definition.Id) && CatalogStateFilter.Includes(
+            bool IsVisibleOption(ToolToggleDefinition definition) => (targetId is null || definition.Id == targetId) && MatchesSearch(search.Text, definition.Name, definition.Category, definition.Description, definition.Id) && CatalogStateFilter.Includes(
                 CurrentStateFilter(), currentStates.TryGetValue(definition.Id, out var state) ? state : null, statesLoaded);
             void UpdateStateFilter(bool scrollToTop = false)
             {
@@ -2737,7 +2751,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
                     int visibleActions = 0;
                     foreach (var (card, action) in actionOnlyCards)
                     {
-                        bool show = showActions && MatchesSearch(search.Text, action.Name, action.Category, action.Description, action.Id);
+                        bool show = showActions && MatchesSearch(search.Text, action.Name, action.Category, action.Description, action.Id) && (targetId is null || action.Id == targetId);
                         card.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
                         if (show) visibleActions++;
                     }
@@ -2834,8 +2848,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
                     if (selectedRow)
                     {
                         var state = currentStates[definition.Id];
-                        preview.Text = state.IsOn ? "Already applied. Review & restore to see the recovery target."
-                            : CatalogChangePreview(definition, state, true, restore: false);
+                        preview.Text = CatalogChangePreview(definition, state, !state.IsOn, restore: state.IsOn);
                     }
                 }
                 int selected = plan.Selected.Count;
@@ -2917,11 +2930,11 @@ namespace Naufal_Windows_Tech_s_Powertoys
                         return;
                     }
                     string targetDescription = windowsDefault
-                        ? "Windows-controlled/default behavior. This intentionally discards saved pre-tweak snapshots for these items."
-                        : "their captured pre-tweak state; when no snapshot exists, a documented Windows default is used instead.";
+                        ? "their supported defaults. Successfully restoring a default can discard the saved original."
+                        : "the recovery targets listed below.";
                     if (!await ShowConfirmationWindowAsync(
                             $"{title} - {operationLabel}",
-                            $"Restore {availableItems.Length} applied item(s) to {targetDescription}" +
+                            $"Restore {availableItems.Length} selected item(s) to {targetDescription}" +
                             (windowsDefault || restorePlan.AlreadyRestoredCount == 0
                                 ? string.Empty
                                 : Environment.NewLine + $"{restorePlan.AlreadyRestoredCount} already-restored item(s) will be skipped.") +
@@ -3012,7 +3025,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
                         {
                             synchronizingControls = false;
                         }
-                        UpdateCatalogStateText(stateTexts[definition.Id], result.State);
+                        UpdateCatalogStateText(stateTexts[definition.Id], toggles[definition.Id], definition, result.State);
                         if (result.Success && result.Verified)
                         {
                             succeeded++;
@@ -3218,7 +3231,6 @@ namespace Naufal_Windows_Tech_s_Powertoys
                             $"Apply {changes.Count} selected tweak(s)? {plan.Selected.Count - changes.Count} already-applied item(s) will be skipped." +
                             Environment.NewLine + Environment.NewLine +
                             string.Join(Environment.NewLine + Environment.NewLine, changes.Select(item => "• " + item.Name + Environment.NewLine + CatalogChangePreview(item, currentStates[item.Id], targetOn, restore: false) +
-                                Environment.NewLine + item.Description +
                                 (item.RestartRecommended ? Environment.NewLine + "Restart-sensitive: saved configuration is not proof of post-reboot effectiveness." : "") +
                                 (string.IsNullOrWhiteSpace(item.Warning) ? "" : Environment.NewLine + item.Warning))) +
                             Environment.NewLine + Environment.NewLine + "Restore uses the saved state when available; default fallback and app recovery limitations are described by each option. Review these before applying." +
@@ -3312,7 +3324,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
                         {
                             synchronizingControls = false;
                         }
-                        UpdateCatalogStateText(stateTexts[definition.Id], result.State);
+                        UpdateCatalogStateText(stateTexts[definition.Id], toggles[definition.Id], definition, result.State);
                         if (result.Success && result.Verified)
                         {
                             succeeded++;
@@ -3382,9 +3394,12 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 {
                     button.IsEnabled = false;
                 }
-                foreach (ToggleSwitch toggle in toggles.Values)
+                foreach (var (id, toggle) in toggles)
                 {
                     toggle.IsEnabled = false;
+                    toggle.OnContent = toggle.OffContent = "Checking…";
+                    stateTexts[id].Text = "Reading the current Windows configuration…";
+                    selectionPreviews[id].Visibility = Visibility.Collapsed;
                 }
                 foreach (CheckBox selector in selectors.Values)
                 {
@@ -3413,7 +3428,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
                         ToolToggleState state = await ReadToggleStateWithTimeoutAsync(
                             service,
                             definition);
-                        UpdateCatalogStateText(stateTexts[definition.Id], state);
+                        UpdateCatalogStateText(stateTexts[definition.Id], toggles[definition.Id], definition, state);
                         progressWindow.VerifyItem(definition.Id);
                         if (state.IsConfirmedUnavailable)
                             progressWindow.UnavailableItem(definition.Id, state.Error);
@@ -3447,7 +3462,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
                             toggle.IsOn = state.IsOn;
                             toggle.IsEnabled = state.IsAvailable;
 
-                            UpdateCatalogStateText(stateTexts[definition.Id], state);
+                            UpdateCatalogStateText(stateTexts[definition.Id], toggles[definition.Id], definition, state);
                         }
                     }
                     finally
@@ -3500,6 +3515,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
 
             search.TextChanged += (_, _) =>
             {
+                if (!string.Equals(search.Text, searchName, StringComparison.Ordinal)) targetId = null;
                 UpdateStateFilter(scrollToTop: true);
                 UpdateSelectionSummary();
             };
@@ -3525,20 +3541,26 @@ namespace Naufal_Windows_Tech_s_Powertoys
 
         private static string CatalogChangePreview(ToolToggleDefinition item, ToolToggleState state, bool targetOn, bool restore, bool defaults = false)
         {
-            string current = state.IsOn ? "applied" : state.HasAppliedParts ? "partially applied" : "not applied";
-            string target = restore ? (defaults ? "Windows default" : "saved configuration or documented default")
-                : !targetOn ? "OFF" : item.Id switch
-                {
-                    "Widgets" => "remove the Widgets package",
-                    "WindowsAI" => "apply the listed Windows AI restrictions",
-                    _ => item.IsFeatureSwitch ? "ON" : "apply this tweak"
-                };
-            return $"Current tweak: {current} · After confirmation: {target}";
+            string current = CatalogStateFilter.StatusText(state, item.IsFeatureSwitch);
+            if (!state.IsAvailable) return $"{current} · {state.Error}";
+            string target = defaults ? "Use the default recovery action supported by this option."
+                : restore ? "Restore using the source below."
+                : item.IsFeatureSwitch ? $"{(targetOn ? "Enable" : "Disable")} {item.Name}."
+                : item.Description;
+            string recovery = string.IsNullOrWhiteSpace(state.RecoverySource)
+                ? "Reload to check the recovery source." : state.RecoverySource;
+            string consequence = item.Id == "WindowsAI"
+                ? "\nRemoved Recall history and app data cannot be recovered. Reinstalling packages or features may require Microsoft Store or Windows Update."
+                : "";
+            return $"{current} · {state.ActualValue}\nAfter confirmation: {target}\nRecovery: {recovery}{consequence}";
         }
 
-        private static void UpdateCatalogStateText(TextBlock text, ToolToggleState state)
+        private static void UpdateCatalogStateText(TextBlock text, ToggleSwitch toggle, ToolToggleDefinition definition, ToolToggleState state)
         {
-            text.Text = state.IsAvailable ? $"Current configuration: {state.ActualValue}"
+            string label = CatalogStateFilter.StatusText(state, definition.IsFeatureSwitch);
+            toggle.OnContent = state.IsAvailable ? (definition.IsFeatureSwitch ? "Enabled" : "Applied") : label;
+            toggle.OffContent = state.IsOn && state.IsAvailable ? (definition.IsFeatureSwitch ? "Disabled" : "Not applied") : label;
+            text.Text = state.IsAvailable ? $"{label} · {state.ActualValue}"
                 : state.IsConfirmedUnavailable ? $"Unavailable: {state.Error}"
                 : $"Verification failed: {state.Error}";
             text.Foreground = new SolidColorBrush(state.IsAvailable

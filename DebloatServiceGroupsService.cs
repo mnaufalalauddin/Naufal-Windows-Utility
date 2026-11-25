@@ -19,6 +19,9 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 item => item.Definition.Id,
                 StringComparer.OrdinalIgnoreCase);
 
+        public string DescribeRecovery(ToolToggleDefinition definition) =>
+            CatalogRecovery.Snapshot($@"{BackupRoot}\{definition.Id}", "No current snapshot found. Restore uses documented startup defaults for supported services. A disabled service with an unknown default needs its original settings.");
+
         public IReadOnlyList<ToolToggleDefinition> GetDefinitions() =>
             Catalog.Values.Select(item => item.Definition).ToArray();
 

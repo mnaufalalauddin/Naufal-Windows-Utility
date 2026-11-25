@@ -9,6 +9,7 @@ namespace Naufal_Windows_Tech_s_Powertoys;
 public sealed partial class MainWindow
 {
     private NetworkSettingsView? _networkSettingsView;
+    private Task _initialAdapterScan = Task.CompletedTask;
     partial void OnNetworkActivated()
     {
         if (_networkSettingsView is not null) return;
@@ -91,6 +92,6 @@ public sealed partial class MainWindow
         };
         UiDisplaySettings.Apply(view);
         // Read-only initial scan. Opening this page never applies settings.
-        _ = view.RefreshRequested();
+        _initialAdapterScan = view.RefreshRequested();
     }
 }

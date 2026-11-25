@@ -24,10 +24,13 @@ not download links; private backups and raw machine evidence are not published.
 
 ## 25 November 2026 — v1.0.0.0
 
-- Added Home search for tools and catalog options. Essential, Gaming and Advanced catalogs support live text filtering alongside the existing state filter.
+- Home search opens the matching catalog row, the startup app filter, or a specific IPv4/IPv6 field on the active Ethernet adapter or connected Wi-Fi network. Essential, Gaming and Advanced catalogs support live text filtering alongside the state filter.
 - Moved live CPU, memory, GPU and network charts to the top of Home.
 - Tweak dialogs automatically reread configuration after Apply or Restore and retain eligible selections. Group actions, confirmation previews and in-place workspace results make the current operation easier to review.
-- GPU Driver Manager identifies the installed version and selected release. Windows Update Fix links directly to Windows Update for a download retry.
+- Tweak previews show the current Windows value and the recovery source for Applied and Not applied states. A retained original can still be restored for supported settings that are currently off.
+- Gaming profiles show how many configuration checks match. Compare two average frame times from the same workload on Home to see the measured difference.
+- GPU Driver Manager identifies the installed version and selected release. Windows Update Fix can open Windows Settings for a retry and read subsequent Windows Update events by title or KB. AI and startup actions identify the policy or registration Windows confirmed.
+- Verification included 5,143 regression assertions and 276 native UI layout cases. Windows Update retry reporting was tested with simulated outcomes and read-only access to both host event logs. Recovery of a previously stalled live download remains unverified.
 
 ## 24 November 2026 — v8.0.0.6
 

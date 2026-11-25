@@ -12,12 +12,14 @@ internal sealed class EssentialBulkActionsService : IToolToggleService
     internal static readonly string[] BulkIds = { "IconCache", "NtfsPerformance", "StoragePowerLatency" };
     private readonly IToolActionService _actions;
     private readonly Func<string, Task<ToolToggleState>> _read;
+    private readonly Func<string, string> _recovery;
     private readonly Dictionary<string, ToolActionDefinition> _definitions;
 
-    public EssentialBulkActionsService(IToolActionService actions, Func<string, Task<ToolToggleState>> read)
+    public EssentialBulkActionsService(IToolActionService actions, Func<string, Task<ToolToggleState>> read, Func<string, string> recovery)
     {
         _actions = actions;
         _read = read;
+        _recovery = recovery;
         _definitions = BulkIds.ToDictionary(id => id,
             id => actions.GetActions().Single(action => action.Id == id && action.SupportsRestore),
             StringComparer.OrdinalIgnoreCase);
@@ -27,6 +29,8 @@ internal sealed class EssentialBulkActionsService : IToolToggleService
         new ToolToggleDefinition(action.Id, action.Category, action.Name, action.Description,
             action.RequiresAdministrator, action.Id == "IconCache" || action.Id == "NtfsPerformance",
             action.Id == "IconCache" ? ToolToggleTier.Safe : ToolToggleTier.Advanced)).ToArray();
+
+    public string DescribeRecovery(ToolToggleDefinition definition) => _recovery(Resolve(definition).Id);
 
     public Task<ToolToggleState> ReadStateAsync(ToolToggleDefinition definition) => _read(Resolve(definition).Id);
 

@@ -15,6 +15,9 @@ namespace Naufal_Windows_Tech_s_Powertoys
         private static readonly IReadOnlyDictionary<string, RegistryLab> Catalog =
             CreateCatalog().Concat(CreatePrivacyCatalog()).ToDictionary(item => item.Definition.Id, StringComparer.OrdinalIgnoreCase);
 
+        public string DescribeRecovery(ToolToggleDefinition definition) =>
+            CatalogRecovery.Snapshot($@"{BackupRoot}\{definition.Id}", "No current snapshot found. Restore checks the default registry settings for this option.");
+
         public IReadOnlyList<ToolToggleDefinition> GetDefinitions() =>
             Catalog.Values.Select(item => item.Definition).ToArray();
 

@@ -32,6 +32,9 @@ namespace Naufal_Windows_Tech_s_Powertoys
         private static readonly IReadOnlyList<AiPolicySetting> PolicySettings =
             CreatePolicySettings();
 
+        public string DescribeRecovery(ToolToggleDefinition definition) =>
+            CatalogRecovery.Snapshot(BackupPath, "No current snapshot found. Default recovery removes the AI policy overrides and returns the installed AI service to Manual. Removed packages and Recall history are outside that recovery.");
+
         public IReadOnlyList<ToolToggleDefinition> GetDefinitions() =>
             new[] { Definition };
 

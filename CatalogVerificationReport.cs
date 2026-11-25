@@ -20,7 +20,7 @@ internal static class CatalogVerificationReport
         if (snapshot is not ToolToggleState state) return "Not captured";
         if (state.IsConfirmedUnavailable) return $"Unavailable on this PC — {state.Error}";
         if (state.HasReadFailure) return $"Unable to read — {state.Error}";
-        return $"{(state.IsOn ? "ON" : state.HasAppliedParts ? "PARTIAL / saved restore state" : "OFF")} — {state.ActualValue}";
+        return $"{(state.IsOn ? "ON" : state.HasAppliedParts ? "PARTIAL" : "OFF")} — {state.ActualValue}";
     }
 
     public static string Build(string operation, DateTimeOffset started, TimeSpan elapsed, string summary,

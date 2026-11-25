@@ -56,7 +56,7 @@ internal sealed class CatalogSelectionPlan
             {
                 toApply.Add(definition);
             }
-            if (state.IsOn || state.HasAppliedParts || definition.IsFeatureSwitch)
+            if (state.IsOn || state.HasAppliedParts || state.HasSavedOriginal || definition.IsFeatureSwitch)
             {
                 toRestore.Add(definition);
             }

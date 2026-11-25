@@ -9,6 +9,8 @@ namespace Naufal_Windows_Tech_s_Powertoys;
 
 public sealed partial class MainWindow
 {
+    private TextBox? _startupFilter;
+    private bool _focusStartupFilter;
     private bool _debloatWorkspaceInitialized;
     private bool _debloatWorkspaceBusy;
     private readonly DebloatWorkspaceService _debloatWorkspace = new();
@@ -142,7 +144,7 @@ public sealed partial class MainWindow
         parent.Children.Add(feedback);
         return button;
     }
-    private static void WorkspaceSearch(StackPanel rows, List<(FrameworkElement Row, string Text)> items)
+    private static TextBox WorkspaceSearch(StackPanel rows, List<(FrameworkElement Row, string Text)> items)
     {
         TextBox search = new() { PlaceholderText = "Search name, publisher or identity", Header = "Filter list" };
         search.TextChanged += (_, _) =>
@@ -151,6 +153,7 @@ public sealed partial class MainWindow
                 ? Visibility.Visible : Visibility.Collapsed;
         };
         rows.Children.Insert(0, search);
+        return search;
     }
 
     private async Task LoadAiWorkspace(StackPanel rows, TextBlock status)
@@ -184,7 +187,8 @@ public sealed partial class MainWindow
                 WorkspaceButton(card, restore ? "Restore original policy" : state.ApplyLabel, () => WorkspaceRun(status, async () =>
                 {
                     await Task.Run(() => _debloatWorkspace.ChangeAi(control, restore));
-                    status.Text = restore ? $"{control.Name}: original policy restored and verified." : $"{control.Name}: disable policy applied and verified.";
+                    status.Text = (restore ? $"{control.Name}: the policy matches the saved original." : $"{control.Name}: Windows reports the disable policy is configured.") +
+                        "\nReopen the affected app or Windows feature to check its behavior on this build.";
                 }, control.Name + ": " + control.Warning + "\nScope: all Windows accounts. Original policy snapshot is retained before changes.",
                     restore ? "Restore original policy" : "Disable " + control.Name), restore ? state.RestoreBlock is null : state.ApplyBlock is null);
         }
@@ -226,6 +230,14 @@ public sealed partial class MainWindow
         status.Text = $"{apps.Length} desktop registrations found. Portable apps without uninstall registration are not included.";
     }
 
+    private void FocusStartupFilter()
+    {
+        if (!_focusStartupFilter || AdvancedPage.Visibility != Visibility.Visible || _startupFilter?.IsLoaded != true) return;
+        _focusStartupFilter = false;
+        _startupFilter.Focus(FocusState.Keyboard);
+        _startupFilter.StartBringIntoView();
+    }
+
     private async Task LoadStartupWorkspace(StackPanel rows, TextBlock status)
     {
         var apps = await Task.Run(_debloatWorkspace.ReadStartup);
@@ -243,11 +255,13 @@ public sealed partial class MainWindow
             WorkspaceButton(card, saved ? "Restore original registration (keep Windows approval)" : "Disable startup registration", () => WorkspaceRun(status, async () =>
             {
                 await Task.Run(() => _debloatWorkspace.ChangeStartup(app, saved));
-                status.Text = saved ? $"Startup registration restored for {app.Name}." : $"Startup registration disabled for {app.Name}. This takes effect at the next sign-in.";
+                status.Text = (saved ? $"{app.Name}: Windows reports the original Run entry is present again." : $"{app.Name}: Windows reports the selected Run entry is absent.") +
+                    "\nCheck the next sign-in to see whether the app starts. Another startup entry can still launch it.";
             }, $"{app.Name}\n{app.Command}\nScope: this Windows account's Run registration. Disabling may stop sync, notifications or vendor utilities at sign-in. Restore uses the exact saved registration, not guessed defaults.",
                 saved ? "Restore startup" : "Disable startup"), app.BlockReason is null);
         }
-        WorkspaceSearch(rows, searchable);
+        _startupFilter = WorkspaceSearch(rows, searchable);
+        _startupFilter.Loaded += (_, _) => FocusStartupFilter();
         WorkspaceButton(rows, "Open all Windows startup apps", () => WorkspaceRun(status, async () =>
         { if (!await Windows.System.Launcher.LaunchUriAsync(new("ms-settings:startupapps"))) throw new InvalidOperationException("Windows Settings did not open."); status.Text = "Windows startup settings opened."; }));
         status.Text = $"{apps.Length} Run registrations / saved entries loaded. Services and scheduled tasks are not changed here.";

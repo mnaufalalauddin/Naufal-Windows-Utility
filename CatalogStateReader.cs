@@ -19,6 +19,10 @@ internal static class CatalogStateReader
         {
             if (!items.TryGetValue(definition.Id, out probe!)) items[definition.Id] = probe = new();
         }
-        return probe.ReadTaskAsync(() => service.ReadStateAsync(definition), timeout);
+        return probe.ReadTaskAsync(async () =>
+        {
+            var state = await service.ReadStateAsync(definition).ConfigureAwait(false);
+            return state.IsAvailable ? state with { RecoverySource = service.DescribeRecovery(definition) } : state;
+        }, timeout);
     }
 }

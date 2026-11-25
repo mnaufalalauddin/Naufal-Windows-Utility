@@ -12,7 +12,7 @@ An open-source desktop app for Windows 10 and 11. Find a Windows tweak, check wh
 
 | Menu | What you can do |
 | --- | --- |
-| **Home** | Search for a setting such as `Game Mode`, `Copilot` or `DNS`. Watch live CPU, memory, GPU 3D and network charts, check your performance profile, or open Task Monitoring. |
+| **Home** | Search `Game Mode` for its catalog row, `DNS WiFi` for the DNS field of the connected network, or `Startup Apps Manager` for the startup list. Watch live CPU, memory, GPU 3D and network charts, check your performance profile, or open Task Monitoring. |
 | **System Repair** | Run Full Repair or Quick Repair, rebuild Windows Update caches, or troubleshoot Microsoft Store and Explorer. |
 | **System Info** | Inspect disk health and SMART counters, export a system report, check Windows or Office activation, and see which tweaks share a setting. |
 | **Windows Security** | Review protection status, BitLocker, automatic device encryption, Defender, Smart App Control and LSA protection. |
@@ -34,9 +34,9 @@ An open-source desktop app for Windows 10 and 11. Find a Windows tweak, check wh
 
 In **Essential Windows Tweaks**, **Gaming Tweaks** and **Advanced Windows Tweaks & De-Bloat**, combine text search with **ON**, **OFF**, **Partially applied**, **Unavailable** or **Not verified**. ON means the *tweak* is applied. For example, turning on a removal tweak can remove the Windows feature named on the row. Bulk selection and restore operate on visible options. Use **All options** to find action-only tools such as **Review apps**.
 
-**Apply** previews the target state. **Restore** uses the captured original where available. A documented **Windows default** can differ from your previous choice, and restoring defaults can discard a saved original. After Apply or Restore, the catalog rereads the configuration. The tool window shows progress, verification and errors. Operation journals and conflict checks protect shared settings such as Advertising ID across catalogs.
+Select a row to see its measured state, the proposed change and the recovery source. **Applied** and **Not applied** describe the current configuration. Some options can still restore a saved original when they show **Not applied**. A documented **Windows default** can differ from your previous choice, and restoring defaults can discard a saved original. After Apply or Restore, the catalog rereads the configuration. The tool window shows progress, verification and errors. Operation journals and conflict checks protect shared settings such as Advertising ID across catalogs.
 
-**Competitive Gaming** and **Optimized Gaming** use Ultimate Performance. **Balanced** uses the Windows Balanced plan. Profiles also configure scheduling, processor power policy, boot timers and network settings. The confirmation describes their scope. FPS and latency gains depend on the workload and PC.
+**Competitive Gaming** and **Optimized Gaming** use Ultimate Performance. **Balanced** uses the Windows Balanced plan. Profiles also configure scheduling, processor power policy, boot timers and network settings. **Configuration verified (23/23)** means all 23 settings match the profile. In **Compare gameplay measurements**, enter the average frame time from two runs of the same scene and graphics settings to see the difference in milliseconds and percent.
 
 **Installation and backups.** The default installation folder is `C:\Program Files\Naufal Tech's Limited\Naufal Windows Utility`. Preferences and some recovery files live under `%LOCALAPPDATA%\Naufal Windows Powertoys`; other snapshots are feature-specific or stored in the registry. If Setup reports a previous installation in a different folder, keep the backups, close the app and follow its relocation instructions.
 
@@ -63,7 +63,7 @@ Open **Advanced Windows Tweaks & De-Bloat → Built-in Windows Apps → Review a
 <details>
 <summary><strong>Windows Update Fix and security controls</strong> · What gets checked</summary>
 
-For a stalled download, close Windows Update Settings and wait for any active installation to finish. **System Repair → Windows Update Fix** checks BITS, Windows Update and Cryptographic Services. It retains uniquely named backups of the caches it resets, including DataStore, Download and, when available, catroot2. If running dependencies prevent cryptsvc from stopping with error 1051, the limited path leaves catroot2 alone and reports **Partial repair**. Review or save the log, then use **Check for updates** in Windows Settings to retry the download. [VM repair evidence](docs/verification-20261015.md) · [Pause/Resume and partial repair](docs/verification-8.0.0.5.md)
+For a stalled download, close Windows Update Settings and wait for any active installation to finish. **System Repair → Windows Update Fix** checks BITS, Windows Update and Cryptographic Services. It retains uniquely named backups of the caches it resets, including DataStore, Download and, when available, catroot2. If running dependencies prevent cryptsvc from stopping with error 1051, the limited path leaves catroot2 alone and reports **Partial repair**. Review or save the log, then use **Check for updates** in Windows Settings to retry the download. Back in the repair window, select **Check update activity** and look for your KB or update title in the events recorded since the repair finished. [VM repair evidence](docs/verification-20261015.md) · [Pause/Resume and partial repair](docs/verification-8.0.0.5.md)
 
 **Windows Security** distinguishes configured protection from running protection. Memory Integrity (HVCI) is read-only here. LSA Enable has compatibility and policy checks; automatic LSA rollback is unavailable because registry state cannot establish whether a firmware lock persists. Keep your BitLocker recovery key securely. Changing automatic encryption policy leaves an already encrypted drive encrypted. [Security controls and recovery limits](docs/security-controls.md)
 
@@ -113,7 +113,7 @@ Additional tools cover printers, computer/workgroup settings, network drives, WI
 
 | Area | Evidence and remaining limits |
 | --- | --- |
-| Desktop and installer | The v1.0.0.0 x64 Native AOT installer was downloaded from GitHub and its SHA-256 matched the local build. The isolated WinUI suite passed **47,312 assertions across 276 layout cases**, including small windows, text scaling and theme contrast. The suite uses isolated controls for interaction tests. |
+| Desktop and installer | The release includes the x64 Native AOT installer and its SHA-256 checksum. The isolated WinUI suite passed **47,316 assertions across 276 layout cases**, including small windows, text scaling and theme contrast. The suite uses isolated controls for interaction tests. |
 | Profiles and apps | On one development PC, each of the three profiles passed 23 checks and an intentional rollback. A VirtualBox guest launched Chrome’s registered uninstaller and verified removal of its registration. Vendor uninstallers, AI runtime effects and startup behavior across sign-in need broader live coverage. |
 | Windows Update | A VMware guest completed all six local repair stages and retained the cache backups. A separate Pause/Resume test completed a scan with no download offered. Recovery of an observed, previously stuck online download is still unverified. |
 | Networking | Per-SSID IPv4/IPv6 addressing and rollback were exercised on one host across reconnects, two SSIDs and reboots. On the retained alternative DNS configuration, 12/12 Wi-Fi-bound DNS/HTTPS checks passed after reboot. The original router’s IPv6 DNS occasionally timed out. A VMware guest verified Ethernet IPv4 DNS Apply and exact rollback. Other network actions need separate live tests. |

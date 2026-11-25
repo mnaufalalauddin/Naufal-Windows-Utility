@@ -46,10 +46,16 @@ internal static class CatalogStateFilterTests
         assert(on.Selected.Select(d => d.Id).SequenceEqual(["On"]) && on.ToApply.Count == 0 && on.ToRestore.Count == 1, "ON filter scopes selection/restore to visible ON row");
         var off = Plan(CatalogStateView.Off);
         assert(off.Selected.Select(d => d.Id).SequenceEqual(["Off"]) && off.ToApply.Count == 1 && off.ToRestore.Count == 0, "OFF filter excludes mixed, missing and failed probes");
+        assert(CatalogStateFilter.StatusText(states["On"], false) == "Applied" && CatalogStateFilter.StatusText(states["Off"], false) == "Not applied", "Both verified tweak states are explicit");
+        assert(CatalogStateFilter.StatusText(states["Partial"], false) == "Partially applied" && CatalogStateFilter.StatusText(states["Error"], false) == "Not verified" && CatalogStateFilter.StatusText(states["Unavailable"], false) == "Unavailable", "Partial, unreadable and absent targets are distinct from OFF");
+        assert(CatalogStateFilter.StatusText(states["On"], true) == "Enabled" && CatalogStateFilter.StatusText(states["Off"], true) == "Disabled", "Feature switches keep their native semantics");
         var partial = Plan(CatalogStateView.Partial);
         assert(partial.Selected.Count == 1 && partial.ToApply.Count == 1 && partial.ToRestore.Count == 1, "Partial row retains both existing apply and saved-restore semantics");
         assert(Plan(CatalogStateView.Unavailable).Selected.Count == 0 && Plan(CatalogStateView.NotVerified).Selected.Count == 0, "Unavailable and failed-read rows remain non-actionable");
         assert(Plan(CatalogStateView.On, false).Selected.Count == 0 && Plan(CatalogStateView.Off, false).Selected.Count == 0, "Stale ON/OFF view cannot dispatch hidden old-state selections");
+        states["Off"] = states["Off"] with { HasSavedOriginal = true };
+        var offWithBackup = Plan(CatalogStateView.Off, true);
+        assert(offWithBackup.ToApply.Count == 1 && offWithBackup.ToRestore.Count == 1, "A saved original permits restore while the current setting remains Not applied");
         states["Off"] = new(true, true, "Applied after operation");
         assert(Plan(CatalogStateView.Off).Selected.Count == 0 && Plan(CatalogStateView.On).Selected.Count == 2, "Verified read-back changes filter membership after operation");
         assert(Plan(CatalogStateView.All).Selected.Count == 3, "All view retains full available catalog scope");
@@ -61,7 +67,7 @@ internal static class CatalogStateFilterTests
         assert(shared.Contains("definition => IsVisibleOption(definition) && selectors[definition.Id].IsChecked == true"), "Selected action dispatch excludes hidden rows");
         assert(shared.Contains("IsVisibleOption(definition) && currentStates[definition.Id].IsAvailable && predicate(definition)"), "Select safe/advanced/all intersect the active filter");
         assert(shared.Contains("items, currentStates, IsVisibleOption") && shared.Contains("currentStates,\n                    IsVisibleOption"), "Apply and restore including default bulk scopes are filter restricted");
-        assert(shared.Contains("if (!show || !statesLoaded) selectors[definition.Id].IsChecked = false"), "Hidden and stale selections are cleared");
+        assert(shared.Contains("if (statesLoaded && (!show || !currentStates[definition.Id].IsAvailable)) selectors[definition.Id].IsChecked = false") && shared.Contains("!statesLoaded || stateLoadInProgress"), "After rescan, hidden or unavailable rows are deselected and pending scans cannot dispatch actions");
         assert(shared.Contains("stateFilter.IsEnabled = !busy") && shared.Contains("individualActionGate.IsBusy || updatingStateFilter"), "Filter cannot change during confirmation or active work");
         assert(shared.Contains("CurrentStateFilter() == CatalogStateView.All") && shared.Contains("actionOnlyCards"), "Action-only tools are not misclassified ON/OFF");
         assert(shared.Contains("UpdateStateFilter();\r\n                if (!statesLoaded)") || shared.Contains("UpdateStateFilter();\n                if (!statesLoaded)"), "Summary refresh reapplies current state filter");

@@ -165,6 +165,13 @@ namespace Naufal_Windows_Tech_s_Powertoys
                     true)
             };
 
+        public string DescribeRecovery(ToolToggleDefinition definition) =>
+            definition.Id == "Widgets" ? "WinGet reinstalls Windows Web Experience Pack from Microsoft Store and checks package registration. Removed app data is outside this recovery." :
+            CatalogRecovery.Snapshot($@"{BackupRoot}\{definition.Id}", definition.Id is "SysMain" or "DeliveryOptimization" or "ConsumerFeatures"
+                    ? "No current snapshot found. A documented Windows default is available."
+                    : definition.Id == "Telemetry" ? "Restore checks the shared privacy snapshots for the original values."
+                    : "No current snapshot found. This option needs the original backup.");
+
         public IReadOnlyList<ToolToggleDefinition> GetDefinitions() => Definitions;
 
         public IReadOnlyList<CatalogEffect> GetEffects(ToolToggleDefinition definition) => definition.Id switch

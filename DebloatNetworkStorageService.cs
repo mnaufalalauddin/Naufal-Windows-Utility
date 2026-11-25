@@ -50,6 +50,9 @@ namespace Naufal_Windows_Tech_s_Powertoys
                     true)
             };
 
+        public string DescribeRecovery(ToolToggleDefinition definition) =>
+            CatalogRecovery.Snapshot($@"{BackupRoot}\{definition.Id}", "No current snapshot found. Restore uses the Windows default for this network or storage setting.");
+
         public IReadOnlyList<ToolToggleDefinition> GetDefinitions() => Definitions;
 
         public async Task<ToolToggleState> ReadStateAsync(ToolToggleDefinition definition)

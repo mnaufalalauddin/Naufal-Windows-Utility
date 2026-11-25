@@ -6,8 +6,10 @@ internal static class RecoveredCatalogFeaturesTests
     {
         var actions = new FakeActions();
         ToolToggleState state = new(false, true, "Original=7");
-        var bulk = new EssentialBulkActionsService(actions, _ => Task.FromResult(state));
+        var bulk = new EssentialBulkActionsService(actions, _ => Task.FromResult(state), id => "Fixture backup: " + id);
         var definitions = bulk.GetDefinitions();
+        var observed = await CatalogStateReader.ReadAsync(bulk, definitions[0], TimeSpan.FromSeconds(5));
+        assert(!observed.IsOn && observed.RecoverySource == "Fixture backup: IconCache", "Not applied retains both the measured state and the owning action's recovery source");
         // Hand-reviewed from V78.ps1 Essential bulk registration, not derived
         // from the production allow-list under test.
         assert(definitions.Select(row => row.Id).SequenceEqual(new[] { "IconCache", "NtfsPerformance", "StoragePowerLatency" }),

@@ -87,6 +87,9 @@ namespace Naufal_Windows_Tech_s_Powertoys
                     IsFeatureSwitch: true)
             };
 
+        public string DescribeRecovery(ToolToggleDefinition definition) =>
+            CatalogRecovery.Snapshot($@"{BackupRoot}\{definition.Id}", "No current snapshot found. Restore uses the Windows default for the selected gaming setting.");
+
         public IReadOnlyList<ToolToggleDefinition> GetDefinitions() => Definitions;
 
         public async Task<ToolToggleState> ReadStateAsync(ToolToggleDefinition definition)

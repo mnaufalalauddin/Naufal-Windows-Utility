@@ -129,31 +129,36 @@ namespace Naufal_Windows_Tech_s_Powertoys
 
         public IReadOnlyList<ToolActionDefinition> GetActions() => Actions;
 
+        private static string SnapshotPath(string id) => id switch
+        {
+            "IconCache" => IconCacheBackupPath,
+            "NtfsPerformance" => NtfsBackupPath,
+            "StoragePowerLatency" => StoragePowerBackupPath,
+            "StoreSearch" => StoreSearchBackupPath,
+            _ => throw new ArgumentOutOfRangeException(nameof(id))
+        };
+
+        internal static string DescribeRecovery(string id) =>
+            CatalogRecovery.Snapshot(SnapshotPath(id), "No snapshot found. Restoring this option requires its original saved settings.");
+
         public async Task<ToolToggleState> ReadBulkStateAsync(string id)
         {
             try
             {
-                string snapshotPath = id switch
-                {
-                    "IconCache" => IconCacheBackupPath,
-                    "NtfsPerformance" => NtfsBackupPath,
-                    "StoragePowerLatency" => StoragePowerBackupPath,
-                    _ => throw new ArgumentOutOfRangeException(nameof(id))
-                };
-                using RegistryKey? snapshot = Registry.CurrentUser.OpenSubKey(snapshotPath, writable: false);
+                using RegistryKey? snapshot = Registry.CurrentUser.OpenSubKey(SnapshotPath(id), writable: false);
                 bool captured = EssentialSnapshotValidation.HasSnapshot(name => snapshot?.GetValue(name));
                 if (id == "IconCache")
                 {
                     using RegistryKey? key = OpenLocalMachineKey(ExplorerPath, writable: false);
                     string value = Convert.ToString(key?.GetValue("MaxCachedIcons"), CultureInfo.InvariantCulture) ?? "";
-                    return new(value == "102400", true, $"MaxCachedIcons={(value.Length == 0 ? "Windows default" : value)}",
-                        HasAppliedParts: captured);
+                    return new(value == "102400", true, $"MaxCachedIcons={(value.Length == 0 ? "Windows default" : value)}")
+                        { HasSavedOriginal = captured };
                 }
                 if (id == "NtfsPerformance")
                 {
                     var ntfs = ReadNtfsPerformanceState();
                     return new(ntfs.IsApplied, true, ntfs.ActualValue,
-                        HasAppliedParts: captured || ntfs.LastAccessMatches || ntfs.ShortNamesMatch);
+                        HasAppliedParts: ntfs.LastAccessMatches || ntfs.ShortNamesMatch) { HasSavedOriginal = captured };
                 }
                 string scheme = await GetActivePowerSchemeGuidAsync();
                 StoragePowerState state = await ReadStoragePowerStateAsync(scheme);
@@ -165,7 +170,8 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 if (!readable) return new(false, false, actual, "Unable to read power-plan storage settings.");
                 bool applied = state.Ahci.Ac == 0 && state.Ahci.Dc == 0 &&
                     state.NvmePrimary.Ac == 0 && state.NvmeSecondary.Ac == 0;
-                return new(applied, true, actual, HasAppliedParts: captured);
+                bool anyApplied = state.Ahci.Ac == 0 || state.Ahci.Dc == 0 || state.NvmePrimary.Ac == 0 || state.NvmeSecondary.Ac == 0;
+                return new(applied, true, actual, HasAppliedParts: anyApplied) { HasSavedOriginal = captured };
             }
             catch (Exception exception)
             {

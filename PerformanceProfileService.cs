@@ -1,4 +1,4 @@
-﻿using Microsoft.Win32;
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -215,7 +215,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
                     true,
                     false,
                     profileName,
-                    $"{profileName} was applied and verified.\n\n" +
+                    $"{profileName} configuration was applied and verified.\n\n" +
                     $"Active power plan: {verification.PowerPlanName}\n" +
                     "MMCSS: VERIFIED\n" +
                     "CPU policy: VERIFIED\n" +

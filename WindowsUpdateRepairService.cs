@@ -40,6 +40,26 @@ namespace Naufal_Windows_Tech_s_Powertoys
         private static readonly NativeCommandRunner CommandRunner = new();
         private readonly UpdateRepairOperations _operations;
 
+        internal static async Task<string> ReadRetryActivityAsync(DateTimeOffset since,
+            Func<string, IReadOnlyList<string>, TimeSpan, Task<NativeCommandResult>>? read = null)
+        {
+            read ??= (exe, args, timeout) => CommandRunner.RunAsync(exe, args, timeout, outputEncoding: Encoding.Unicode);
+            string stamp = since.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture);
+            string query = $"/q:*[System[Provider[@Name='Microsoft-Windows-WindowsUpdateClient'] and TimeCreated[@SystemTime >= '{stamp}']]]";
+            var report = new StringBuilder($"Windows Update activity since {since.ToLocalTime():g} (local time).");
+            foreach (string channel in new[] { "Microsoft-Windows-WindowsUpdateClient/Operational", "System" })
+            {
+                var result = await read(Path.Combine(Environment.SystemDirectory, "wevtutil.exe"),
+                    ["qe", channel, query, "/rd:true", "/c:8", "/f:text", "/uni:true"], TimeSpan.FromSeconds(10));
+                report.AppendLine().AppendLine(channel + " (up to 8 recent events)");
+                if (result.TimedOut || result.ExitCode != 0)
+                    report.Append(result.TimedOut ? "Reading this log timed out." : $"Could not read this log (exit {result.ExitCode}). {result.CombinedOutput}");
+                else
+                    report.Append(string.IsNullOrWhiteSpace(result.StandardOutput) ? "No Windows Update events recorded in this interval." : result.StandardOutput.Trim());
+            }
+            return report.AppendLine().Append("Match the update title or KB and the reported stage to your download. Windows may also record other background updates.").ToString();
+        }
+
         public WindowsUpdateRepairService() : this(new UpdateRepairOperations(
             WindowsPrivilegeService.IsAdministrator,
             Environment.GetFolderPath(Environment.SpecialFolder.Windows),

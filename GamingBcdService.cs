@@ -17,6 +17,9 @@ namespace Naufal_Windows_Tech_s_Powertoys
 
         private readonly NativeCommandRunner _commandRunner = new();
 
+        public string DescribeRecovery(ToolToggleDefinition definition) =>
+            CatalogRecovery.Snapshot($@"{BackupRoot}\{definition.Id}", "No current snapshot found. Restore checks the Windows boot default for this setting.");
+
         public IReadOnlyList<ToolToggleDefinition> GetDefinitions() =>
             Catalog.Values.Select(item => item.Definition).ToArray();
 

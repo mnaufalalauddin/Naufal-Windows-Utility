@@ -67,6 +67,9 @@ namespace Naufal_Windows_Tech_s_Powertoys
 
         private readonly NativeCommandRunner _commandRunner = new();
 
+        public string DescribeRecovery(ToolToggleDefinition definition) =>
+            CatalogRecovery.Snapshot(BackupPath, "No current snapshot found. Restore uses the supported Xbox package, Game DVR and service defaults.");
+
         public IReadOnlyList<ToolToggleDefinition> GetDefinitions() => new[] { Definition };
 
         public async Task<ToolToggleState> ReadStateAsync(ToolToggleDefinition definition)

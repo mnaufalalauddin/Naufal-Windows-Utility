@@ -13,6 +13,15 @@ internal static class CatalogStateFilter
         return state.Value.HasAppliedParts ? CatalogStateView.Partial : CatalogStateView.Off;
     }
 
+    internal static string StatusText(ToolToggleState state, bool featureSwitch) => Classify(state, true) switch
+    {
+        CatalogStateView.On => featureSwitch ? "Enabled" : "Applied",
+        CatalogStateView.Off => featureSwitch ? "Disabled" : "Not applied",
+        CatalogStateView.Partial => "Partially applied",
+        CatalogStateView.Unavailable => "Unavailable",
+        _ => "Not verified"
+    };
+
     internal static bool Includes(CatalogStateView view, ToolToggleState? state, bool scanCurrent) =>
         view == CatalogStateView.All || view == Classify(state, scanCurrent);
 

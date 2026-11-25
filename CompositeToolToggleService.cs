@@ -39,6 +39,9 @@ namespace Naufal_Windows_Tech_s_Powertoys
         public Task<ToolToggleState> ReadStateAsync(ToolToggleDefinition definition) =>
             Resolve(definition).Service.ReadStateAsync(Resolve(definition).Definition);
 
+        public string DescribeRecovery(ToolToggleDefinition definition) =>
+            Resolve(definition).Service.DescribeRecovery(Resolve(definition).Definition);
+
         public Task<ToolToggleOperationResult> SetStateAsync(
             ToolToggleDefinition definition,
             bool targetOn) =>
@@ -94,6 +97,9 @@ namespace Naufal_Windows_Tech_s_Powertoys
 
         public Task<ToolToggleState> ReadStateAsync(ToolToggleDefinition definition) =>
             _source.ReadStateAsync(Resolve(definition));
+
+        public string DescribeRecovery(ToolToggleDefinition definition) =>
+            _source.DescribeRecovery(Resolve(definition));
 
         public Task<ToolToggleOperationResult> SetStateAsync(
             ToolToggleDefinition definition,

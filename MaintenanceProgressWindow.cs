@@ -51,6 +51,8 @@ namespace Naufal_Windows_Tech_s_Powertoys
         private readonly TextBlock _resultText;
         private readonly ProgressBar _progressBar;
         private readonly TextBox _outputBox;
+        private readonly Button? _retryActivityButton;
+        private DateTimeOffset _repairFinished;
         private readonly IReadOnlyList<TextBlock> _stageStatusTexts;
         private readonly List<string> _stageStatuses = new();
         private readonly List<ProgressBar> _stageBars = new();
@@ -214,8 +216,20 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 Text = "LIVE OUTPUT",
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
             };
-            Grid.SetRow(outputHeading, 1);
-            _contentRoot.Children.Add(outputHeading);
+            var outputHeader = new Grid { ColumnSpacing = 8 };
+            outputHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            outputHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            outputHeading.VerticalAlignment = VerticalAlignment.Center;
+            outputHeader.Children.Add(outputHeading);
+            if (offerWindowsUpdateRetry)
+            {
+                _retryActivityButton = new Button { Content = "Check update activity", IsEnabled = false };
+                _retryActivityButton.Click += async (_, _) => await CheckRetryActivityAsync();
+                Grid.SetColumn(_retryActivityButton, 1);
+                outputHeader.Children.Add(_retryActivityButton);
+            }
+            Grid.SetRow(outputHeader, 1);
+            _contentRoot.Children.Add(outputHeader);
 
             _outputBox = new TextBox
             {
@@ -325,6 +339,11 @@ namespace Naufal_Windows_Tech_s_Powertoys
             success = completion.Success && !partialRepair;
             warningCount = completion.WarningCount;
             _completed = true;
+            if (_retryActivityButton is not null)
+            {
+                _repairFinished = DateTimeOffset.UtcNow;
+                _retryActivityButton.IsEnabled = true;
+            }
             _succeeded = success || partialRepair;
             _warningCount = warningCount;
             _stopwatch.Stop();
@@ -368,6 +387,24 @@ namespace Naufal_Windows_Tech_s_Powertoys
             _window.CloseButton.IsEnabled = true;
             if (_window.PrimaryButton.Visibility == Visibility.Visible) _window.PrimaryButton.IsEnabled = true;
             _window.SecondaryButton.IsEnabled = _liveOutput.Length > 0;
+        }
+
+        private async Task CheckRetryActivityAsync()
+        {
+            if (!_completed || _closed || _retryActivityButton?.IsEnabled != true) return;
+            _retryActivityButton.IsEnabled = false;
+            try
+            {
+                string events = await WindowsUpdateRepairService.ReadRetryActivityAsync(_repairFinished);
+                if (_closed) return;
+                AppendOutput(events);
+                _resultText.Text = "Recent Windows Update events are in the log. Check the entry for your update.";
+            }
+            catch (Exception error)
+            {
+                if (!_closed) _resultText.Text = "Could not read Windows Update activity: " + error.Message;
+            }
+            finally { if (!_closed) _retryActivityButton.IsEnabled = true; }
         }
 
         private void ReportCore(MaintenanceProgressUpdate update)
@@ -419,6 +456,11 @@ namespace Naufal_Windows_Tech_s_Powertoys
             }
 
             string line = $"[{_stopwatch.Elapsed:hh\\:mm\\:ss}] [{_activeStage}/{update.StageCount}] {update.Detail}";
+            AppendOutput(line);
+        }
+
+        private void AppendOutput(string line)
+        {
             if (_liveOutput.Length > 0)
             {
                 _liveOutput.AppendLine();

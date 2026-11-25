@@ -59,6 +59,10 @@ public sealed partial class MainWindow
         Check(VisualDescendants<TextBox>(view).Any(t => t.Header is string h && h == "Subnet mask" && t.Text == "255.255.255.0"), "current subnet mask is shown");
         var save = VisualDescendants<Button>(view).First(b => b.Content is TextBlock { Text: "Save to Windows…" });
         Check(!save.IsEnabled, "unchanged form cannot save");
+        await view.FocusAddressFieldAsync(false, true, "Alternate DNS");
+        Check(VisualDescendants<TextBox>(view).Count(t => t.Description is string d && d.Contains("Ethernet") && d.Contains("IPv6") && t.Header is string h && h.StartsWith("Alternate DNS")) == 1,
+            "Ethernet IPv6 deep link identifies exactly the alternate DNS field");
+        Check(!save.IsEnabled, "searching for DNS never edits the active configuration");
         var dnsMode = VisualDescendants<ComboBox>(view).First(c => c.Header is string h && h == "DNS assignment");
         dnsMode.SelectedItem = "Manual";
         var preferred = VisualDescendants<TextBox>(view).First(t => t.Header is string h && h == "Preferred DNS address");
@@ -87,6 +91,10 @@ public sealed partial class MainWindow
         view.SetWifiState(new(target, null, null));
         Check(VisualDescendants<ComboBox>(view).Where(c => c.Header is string h && h is "IP assignment" or "DNS assignment").All(c => c.IsEnabled), "supported SSID metadata enables in-page editing");
         Check(!save.IsEnabled, "loading SSID metadata creates no pending write");
+        await view.FocusAddressFieldAsync(true, false, "Preferred DNS");
+        Check(VisualDescendants<TextBox>(view).Count(t => t.Description is string d && d.Contains("Office") && d.Contains("IPv4") && t.Header is string h && h.StartsWith("Preferred DNS")) == 1,
+            "Wi-Fi DNS deep link identifies the current SSID and protocol");
+        Check(!save.IsEnabled, "Wi-Fi search leaves SSID settings intact");
         var wifiDns = VisualDescendants<ComboBox>(view).First(c => c.Header is string h && h == "DNS assignment");
         wifiDns.SelectedItem = "Manual";
         var wifiPreferred = VisualDescendants<TextBox>(view).First(t => t.Header is string h && h == "Preferred DNS address");

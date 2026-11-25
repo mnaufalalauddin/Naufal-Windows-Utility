@@ -144,6 +144,7 @@ foreach (string profile in PerformanceProfileVerification.Profiles)
     var expected = Power(profile == "Competitive Gaming");
     ProfileVerificationResult Verify(ProfileVerificationInput value) => PerformanceProfileVerification.Evaluate(profile, value, plan, expected);
     var perfect = Verify(input);
+    Assert(new PerformanceProfileState(perfect).DisplayText == $"{profile} · Configuration verified (23/23)", "full match identifies exactly what was verified");
     Assert(perfect.Total == 23 && perfect.Verified, profile + " 23/23");
     Assert(!Verify(input with { ActivePowerGuid = Guid.Empty.ToString() }).Verified, "wrong plan");
     Assert(!Verify(input with { BcdReadable = false }).Verified, "BCD denied is not default");
@@ -164,7 +165,7 @@ foreach (string profile in PerformanceProfileVerification.Profiles)
     Assert(!Verify(input with { Interfaces = rows }).Verified, "one adapter TCP ACK mismatch");
     Assert(!Verify(input with { Mmcss = input.Mmcss with { ClockRate = null } }).Verified, "missing MMCSS");
     var state = PerformanceProfileVerification.SelectBest(new[] { Verify(input with { BcdReadable = false }) });
-    Assert(state.Profile == "Custom" && state.DisplayText == "Custom - 21/23", "partial cannot disable Apply");
+    Assert(state.Profile == "Custom" && state.DisplayText == $"Custom · 21/23 settings match {profile}", "partial cannot disable Apply");
 }
 var known = new Dictionary<string, string> { ["Optimized Gaming"] = plan };
 var list = new GamingLiveCommandResult(0, $"Power Scheme GUID: {plan} (Ultimate Performance) *", "");

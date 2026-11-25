@@ -20,6 +20,9 @@ namespace Naufal_Windows_Tech_s_Powertoys
         private static readonly IReadOnlyDictionary<string, DebloatDefinition> Catalog =
             CreateCatalog();
 
+        public string DescribeRecovery(ToolToggleDefinition definition) =>
+            CatalogRecovery.Snapshot($@"{BackupRoot}\{definition.Id}", "No current snapshot found. Restore checks for a previous backup before using the Windows default for this option.");
+
         public IReadOnlyList<ToolToggleDefinition> GetDefinitions()
         {
             return Catalog.Values

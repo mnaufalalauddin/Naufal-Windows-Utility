@@ -36,6 +36,7 @@ public sealed partial class MainWindow
                     MatchesSearch(query, hit.Name, hit.Section, hit.Keywords))
                 .OrderByDescending(hit => hit.Name.Equals(query, StringComparison.OrdinalIgnoreCase))
                 .ThenByDescending(hit => hit.Name.StartsWith(query, StringComparison.OrdinalIgnoreCase))
+                .ThenByDescending(hit => hit.Name.StartsWith("Preferred DNS", StringComparison.Ordinal) && query.Contains("dns", StringComparison.OrdinalIgnoreCase))
                 .ThenBy(hit => hit.Name, StringComparer.OrdinalIgnoreCase)
                 .GroupBy(hit => hit.Label)
                 .SelectMany(group => group.Select((hit, index) =>
@@ -64,10 +65,10 @@ public sealed partial class MainWindow
             foreach (var item in toggles.GetDefinitions())
             {
                 toggleIds.Add(item.Id);
-                _searchIndex.Add(new(item.Name, section, $"{item.Category} {item.Description} {item.Id}", () => open(item.Name)));
+                _searchIndex.Add(new(item.Name, section, $"{item.Category} {item.Description} {item.Id}", () => open(item.Id)));
             }
             foreach (var item in actions.GetActions().Where(item => !toggleIds.Contains(item.Id)))
-                _searchIndex.Add(new(item.Name, section, $"{item.Category} {item.Description} {item.Id}", () => open(item.Name)));
+                _searchIndex.Add(new(item.Name, section, $"{item.Category} {item.Description} {item.Id}", () => open(item.Id)));
         }
         AddCatalog("Essential Windows Tweaks", EssentialCatalog(), EssentialCatalogActions(), OpenEssentialTweaksAsync);
         AddCatalog("Gaming Tweaks", GamingCatalog(), _gamingActionsService, OpenGamingTweaksAsync);
@@ -80,9 +81,11 @@ public sealed partial class MainWindow
                 MainNavigation.SelectedItem = MainNavigation.MenuItems.OfType<NavigationViewItem>().First(x => Equals(x.Tag, tag));
                 DispatcherQueue.TryEnqueue(() =>
                 {
+                    _focusStartupFilter = name == "Startup Apps Manager";
                     if (target is Expander expander) expander.IsExpanded = true;
                     target.StartBringIntoView();
                     if (target is Control control) control.Focus(FocusState.Programmatic);
+                    FocusStartupFilter();
                 });
                 return Task.CompletedTask;
             }));
@@ -100,9 +103,27 @@ public sealed partial class MainWindow
                 if (element is Expander expander)
                 {
                     string? heading = expander.Header as string ?? (expander.Header as TextBlock)?.Text;
-                    if (heading is not null) AddPageTarget(heading, section, tag, expander);
+                    if (heading is not null) AddPageTarget(heading, section, tag, expander,
+                        heading == "Startup Apps Manager" ? "matikan aplikasi saat startup nonaktifkan disable autostart login sign-in" : "");
                 }
             }
+        }
+        foreach (bool wifi in new[] { true, false })
+        foreach (bool ipv6 in new[] { false, true })
+        foreach (string field in new[] { "Preferred DNS", "Alternate DNS", "IP address", ipv6 ? "Prefix length" : "Subnet mask", "Gateway" })
+        {
+            string adapter = wifi ? "Wi-Fi" : "Ethernet";
+            string family = ipv6 ? "IPv6" : "IPv4";
+            string aliases = wifi ? "wifi wi fi wireless ssid" : "wired lan kabel";
+            _searchIndex.Add(new($"{field} · {adapter} {family}", "Network Settings Manager",
+                $"ubah ganti atur setel alamat change edit set {aliases}", async () =>
+                {
+                    MainNavigation.SelectedItem = MainNavigation.MenuItems.OfType<NavigationViewItem>().First(x => Equals(x.Tag, "Network"));
+                    OnNetworkActivated();
+                    await _initialAdapterScan;
+                    if (!_isClosed && NetworkPage.Visibility == Visibility.Visible)
+                        await _networkSettingsView!.FocusAddressFieldAsync(wifi, ipv6, field);
+                }));
         }
         AddPageTarget("Network Settings Manager", "Navigation", "Network", NetworkPage, "IPv4 IPv6 DNS gateway subnet Ethernet Wi-Fi SSID");
         AddPageTarget("Live telemetry", "Home", "Home", LiveChartsGrid, "CPU RAM memory GPU network RX TX usage graphs");

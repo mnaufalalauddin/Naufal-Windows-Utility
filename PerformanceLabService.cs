@@ -38,6 +38,11 @@ namespace Naufal_Windows_Tech_s_Powertoys
                 .ToDictionary(lab => lab.Definition.Id, StringComparer.OrdinalIgnoreCase);
         }
 
+        public string DescribeRecovery(ToolToggleDefinition definition) =>
+            CatalogRecovery.Snapshot($@"{BackupRoot}\{definition.Id}", definition.Id is "UacSecureDesktopDimOff" or "NvTdr10" or "LongPathsOn"
+                    ? "No current snapshot found. A documented Windows default exists for this setting."
+                    : "No current snapshot found. This setting requires a valid original backup.");
+
         public IReadOnlyList<ToolToggleDefinition> GetDefinitions() =>
             _catalog.Values.Select(lab => lab.Definition.Id == "FastStartupEnable"
                 ? lab.Definition with { IsFeatureSwitch = true, Name = "Fast Startup", Description = "ON enables Fast Startup; OFF disables it by setting HiberbootEnabled=0. Restore is separate and replays the saved setting. Fast Startup also requires hibernation; disabling it can increase cold-start time." }

@@ -48,7 +48,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
     {
         public bool Verified => Best.Verified;
         public string Profile => Verified ? Best.Profile : "Custom";
-        public string DisplayText => Verified ? $"{Profile} - VERIFIED" : $"Custom - {Best.Matched}/{Best.Total}";
+        public string DisplayText => Verified ? $"{Profile} · Configuration verified ({Best.Matched}/{Best.Total})" : $"Custom · {Best.Matched}/{Best.Total} settings match {Best.Profile}";
     }
 
     /// <summary>Pure 23-check evaluator matching the final reference profile verifier.</summary>

@@ -208,6 +208,15 @@
                             <TextBlock Text="Applies the complete selected profile: MMCSS, processor power policy, BCD/timer, TCP/QoS and RSC. Competitive and Optimized Gaming use Ultimate Performance; Balanced uses the Windows Balanced plan."
                                        FontSize="12" Foreground="#33465F" TextWrapping="Wrap"/>
 
+                            <Expander Header="Compare gameplay measurements" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="The profile check reads Windows settings. To compare gameplay, enter the average frame time from two runs of the same game benchmark, scene, resolution and graphics settings. Lower frame time is better." TextWrapping="Wrap"/>
+                                    <NumberBox x:Name="BeforeFrameTime" Header="Before applying the profile (ms)" PlaceholderText="Average frame time" Minimum="0" SpinButtonPlacementMode="Hidden"/>
+                                    <NumberBox x:Name="AfterFrameTime" Header="After applying the profile (ms)" PlaceholderText="Average frame time" Minimum="0" SpinButtonPlacementMode="Hidden"/>
+                                    <TextBlock x:Name="FrameTimeComparison" Text="Enter both measurements to compare." TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Expander>
+
                             <TextBlock Text="Every apply operation requires confirmation and Administrator rights. Game DVR remains independently controlled from Gaming Tweaks. Restart Windows after a profile change."
                                        FontSize="12" Foreground="#33465F" TextWrapping="Wrap"/>
                         </StackPanel>

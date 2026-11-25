@@ -9,7 +9,7 @@ public sealed partial class MainWindow
     private IToolToggleService EssentialCatalog() => _essentialCatalog ??= new CompositeToolToggleService(
         new FilteredToolToggleService(_essentialTweaksService, "EndTask", "ClassicContext", "Hibernation", "ServicesManual", "PhotoViewer"),
         new PerformanceLabService("Essential Windows Tweaks"),
-        new EssentialBulkActionsService(_essentialActionsService, _essentialActionsService.ReadBulkStateAsync));
+        new EssentialBulkActionsService(_essentialActionsService, _essentialActionsService.ReadBulkStateAsync, EssentialActionsService.DescribeRecovery));
 
     private IToolToggleService GamingCatalog() => _gamingCatalog ??= GamingCatalogOwnership.Create(
         _gamingTweaksService, new GamingBcdService(), new PerformanceLabService("Gaming Tweaks"));

@@ -40,6 +40,7 @@ internal static class CatalogAvailability
             failed == 0 && available.Length > 0,
             actual, detail,
             HasAppliedParts: states.Any(state => state.IsOn || state.HasAppliedParts),
-            UnavailableOnThisPc: states.Count > 0 && unavailable == states.Count);
+            UnavailableOnThisPc: states.Count > 0 && unavailable == states.Count)
+            { HasSavedOriginal = states.Any(state => state.HasSavedOriginal) };
     }
 }

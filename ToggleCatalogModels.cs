@@ -33,6 +33,9 @@ namespace Naufal_Windows_Tech_s_Powertoys
         bool HasAppliedParts = false,
         bool UnavailableOnThisPc = false)
     {
+        public string RecoverySource { get; init; } = string.Empty;
+        public bool HasSavedOriginal { get; init; }
+
         // Only an explicit, successful absence probe may set this flag. An
         // unreadable registry, timeout or missing backup is NOT unavailability.
         public bool IsConfirmedUnavailable => !IsAvailable && UnavailableOnThisPc;
@@ -52,9 +55,28 @@ namespace Naufal_Windows_Tech_s_Powertoys
         ToolToggleState? BeforeState = null,
         bool AlreadyApplied = false);
 
+    internal static class CatalogRecovery
+    {
+        internal static string Snapshot(string path, string missing)
+        {
+            try
+            {
+                using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(path, writable: false);
+                return key is null ? missing : "A snapshot record exists for this option. Restore checks its saved values before using them.";
+            }
+            catch (System.Exception error) when (error is System.UnauthorizedAccessException or System.Security.SecurityException or System.IO.IOException)
+            {
+                return "Could not check the saved settings: " + error.Message;
+            }
+        }
+
+    }
+
     internal interface IToolToggleService
     {
         IReadOnlyList<ToolToggleDefinition> GetDefinitions();
+
+        string DescribeRecovery(ToolToggleDefinition definition) => "Recovery source has not been checked for this option.";
 
         Task<ToolToggleState> ReadStateAsync(ToolToggleDefinition definition);
 

@@ -160,6 +160,13 @@ namespace Naufal_Windows_Tech_s_Powertoys
         public IReadOnlyList<CatalogPlanAction> GetPlanActions(ToolToggleDefinition definition) =>
             Resolve(definition).Children.SelectMany(child => CatalogEffectPlan.Expand(child.Service, child.Definition)).ToArray();
 
+        public string DescribeRecovery(ToolToggleDefinition definition)
+        {
+            var children = Resolve(definition).Children;
+            return string.Join(Environment.NewLine, children.Select(child =>
+                (children.Count > 1 ? child.Definition.Name + " — " : "") + child.Service.DescribeRecovery(child.Definition)));
+        }
+
         public async Task<ToolToggleState> ReadStateAsync(ToolToggleDefinition definition)
         {
             CatalogItem item = Resolve(definition);
@@ -168,7 +175,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
             {
                 states.Add(await child.Service.ReadStateAsync(child.Definition));
             }
-            return AggregateStates(states);
+            return states.Count == 1 ? states[0] : AggregateStates(states);
         }
 
         public async Task<ToolToggleOperationResult> SetStateAsync(
@@ -247,6 +254,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
             ToolToggleDefinition definition,
             bool windowsDefault)
         {
+            List<string> details = new();
             CatalogItem item = Resolve(definition);
             if (definition.RequiresAdministrator &&
                 !WindowsPrivilegeService.IsAdministrator())
@@ -277,6 +285,7 @@ namespace Naufal_Windows_Tech_s_Powertoys
                     child.Service, child.Definition, windowsDefault
                         ? CatalogOperation.RestoreWindowsDefaults
                         : CatalogOperation.RestoreSavedState);
+                details.Add(child.Definition.Name + " — " + result.Message);
                 if (!result.SkippedUnavailable && (!result.Success || !result.Verified))
                 {
                     failures.Add($"{child.Definition.Name}:\n{result.Message}");
@@ -285,11 +294,8 @@ namespace Naufal_Windows_Tech_s_Powertoys
 
             ToolToggleState aggregate = await ReadStateAsync(definition);
             bool verified = applicable > 0 && failures.Count == 0 && aggregate.IsAvailable;
-            string target = windowsDefault
-                ? "Windows defaults"
-                : "the saved state or the documented Windows service default";
             string message = verified
-                ? $"{definition.Name} was restored to {target}."
+                ? string.Join(Environment.NewLine, details)
                 : failures.Count > 0
                     ? string.Join(Environment.NewLine, failures)
                     : "No applicable target is installed on this PC.";
@@ -380,6 +386,8 @@ namespace Naufal_Windows_Tech_s_Powertoys
             false,
             false,
             ToolToggleTier.Safe);
+
+        public string DescribeRecovery(ToolToggleDefinition definition) => EssentialActionsService.DescribeRecovery("StoreSearch");
 
         public StoreSearchToggleService(EssentialActionsService actions)
         {

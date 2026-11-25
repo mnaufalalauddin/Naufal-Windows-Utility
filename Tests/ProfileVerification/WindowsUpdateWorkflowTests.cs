@@ -4,6 +4,22 @@ internal static class WindowsUpdateWorkflowTests
 {
     internal static async Task RunAsync(Action<bool, string> assert)
     {
+        var queries = new List<string[]>();
+        var stamp = new DateTimeOffset(2026, 1, 2, 11, 4, 5, TimeSpan.FromHours(7));
+        var activity = await WindowsUpdateRepairService.ReadRetryActivityAsync(stamp, (exe, args, _) =>
+        {
+            queries.Add(args.ToArray());
+            assert(Path.GetFileName(exe) == "wevtutil.exe", "Retry check only queries the local Windows event log");
+            return Task.FromResult(args[1] == "System"
+                ? new NativeCommandResult(0, "Fixture KB: download failed", "", false, TimeSpan.Zero)
+                : new NativeCommandResult(0, "", "", false, TimeSpan.Zero));
+        });
+        assert(queries.Count == 2 && queries.All(q => q[0] == "qe" && q[2].Contains("2026-01-02T04:04:05.000Z") && q[2].Contains("WindowsUpdateClient")),
+            "Retry check restricts both channels to the repair completion time and update provider");
+        assert(activity.Contains("No Windows Update events") && activity.Contains("Fixture KB: download failed"), "Missing and failed downloads are distinguishable");
+        var denied = await WindowsUpdateRepairService.ReadRetryActivityAsync(stamp, (_, _, _) =>
+            Task.FromResult(new NativeCommandResult(5, "", "Access denied", false, TimeSpan.Zero)));
+        assert(denied.Contains("Access denied") && !denied.Contains("No Windows Update events"), "Read failures do not masquerade as empty event logs");
         using (var f = new Fixture())
         {
             var result = await f.Run();
